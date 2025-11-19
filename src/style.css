@@ -1,13 +1,10 @@
 :root {
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', 'Roboto', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #0f172a;
-  background-color: #0b1120;
-  font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 *,
@@ -19,89 +16,30 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at top, #1e1b4b, #020617);
-  color: #e2e8f0;
+  background-color: #f5f2fb;
+  color: #1f1b2c;
 }
 
 a {
   color: inherit;
+  text-decoration: none;
 }
 
 #app {
   min-height: 100vh;
 }
 
-.surface {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(226, 232, 240, 0.08);
-  border-radius: 16px;
-  padding: 1.5rem;
-  backdrop-filter: blur(16px);
+.gradient-page {
+  position: relative;
+  min-height: 100vh;
+  background: radial-gradient(circle at 20% 20%, rgba(94, 53, 177, 0.2), transparent 50%),
+    radial-gradient(circle at 80% 0%, rgba(0, 191, 165, 0.25), transparent 40%),
+    linear-gradient(135deg, #f9f5ff, #f0f4ff);
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  border: none;
-  border-radius: 999px;
-  padding: 0.65rem 1.4rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.btn-primary {
-  background: linear-gradient(120deg, #6366f1, #22d3ee);
-  color: #0f172a;
-  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
-}
-
-.btn-ghost {
-  background: transparent;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  color: #e2e8f0;
-}
-
-.btn:focus-visible {
-  outline: 2px solid #38bdf8;
-  outline-offset: 3px;
-}
-
-.input {
-  width: 100%;
-  padding: 0.8rem 1rem;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(15, 23, 42, 0.6);
-  color: #f8fafc;
-  font-size: 1rem;
-}
-
-.input:focus {
-  outline: none;
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
-}
-
-.grid {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.card-heading {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 0.4rem;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  background: rgba(148, 163, 184, 0.15);
-  color: #cbd5f5;
+.md-glass {
+  backdrop-filter: blur(18px);
+  background-color: rgba(255, 255, 255, 0.75);
+  border-radius: 24px;
+  border: 1px solid rgba(94, 53, 177, 0.1);
 }

@@ -1,61 +1,152 @@
 <template>
-  <div class="app-shell">
-    <aside class="sidebar surface">
-      <div class="brand">
-        <span class="logo-dot" />
-        <div>
-          <p class="brand-title">SkewPlay</p>
-          <p class="brand-subtitle">No-code ML Lab</p>
-        </div>
-      </div>
-      <nav>
-        <RouterLink
-          v-for="link in links"
-          :key="link.to"
-          :to="link.to"
-          class="nav-link"
-          active-class="active"
-        >
-          <component :is="link.icon" class="icon" />
-          <span>{{ link.label }}</span>
-        </RouterLink>
-      </nav>
-      <button class="btn btn-ghost logout" @click="authStore.logout()">Log out</button>
-    </aside>
+  <v-layout class="skew-shell">
+    <v-navigation-drawer v-model="drawer" :rail="isDesktop ? false : true" permanent>
+      <v-list density="comfortable">
+        <v-list-item>
+          <template #prepend>
+            <v-avatar color="primary" size="36">
+              <v-icon>mdi-triangle</v-icon>
+            </v-avatar>
+          </template>
+          <v-list-item-title class="font-weight-bold">SkewPlay</v-list-item-title>
+          <v-list-item-subtitle>No-code ML Lab</v-list-item-subtitle>
+        </v-list-item>
+      </v-list>
 
-    <section class="content">
-      <header class="top-bar surface">
-        <div>
-          <p class="welcome">Welcome back, {{ authStore.profile?.displayName ?? 'Explorer' }}</p>
-          <p class="tier">Tier: <span class="badge">{{ authStore.profile?.tier ?? 'basic' }}</span></p>
+      <v-divider class="my-2" />
+
+      <v-list density="compact" nav>
+        <v-list-item
+          v-for="item in links"
+          :key="item.to"
+          :to="item.to"
+          link
+          rounded="lg"
+          class="text-body-2"
+        >
+          <template #prepend>
+            <v-icon :icon="item.icon" />
+          </template>
+          <v-list-item-title>{{ item.label }}</v-list-item-title>
+        </v-list-item>
+      </v-list>
+
+      <v-divider class="my-4" />
+
+      <div class="px-4 pb-4">
+        <p class="text-caption mb-2 text-medium-emphasis">Quick start</p>
+        <v-btn block color="primary" class="mb-2" to="/app/datasets" variant="elevated">
+          <v-icon start icon="mdi-upload" />
+          Upload dataset
+        </v-btn>
+        <v-btn block color="secondary" variant="tonal" to="/app/workflows">
+          <v-icon start icon="mdi-flask-outline" />
+          New workflow
+        </v-btn>
+      </div>
+
+      <template #append>
+        <div class="pa-4">
+          <v-btn block variant="text" @click="authStore.logout()">
+            <v-icon start icon="mdi-logout" />
+            Logout
+          </v-btn>
         </div>
-      </header>
-      <main>
+      </template>
+    </v-navigation-drawer>
+
+    <v-app-bar rounded="0" elevation="0">
+      <v-app-bar-nav-icon class="d-md-none" @click="drawer = !drawer" />
+      <v-text-field
+        v-model="searchQuery"
+        prepend-inner-icon="mdi-magnify"
+        label="Search workflows"
+        hide-details
+        clearable
+        class="app-search"
+      />
+      <v-spacer />
+      <v-chip class="mr-3" color="primary" variant="tonal">
+        {{ tierLabel }}
+      </v-chip>
+      <v-btn icon @click="toggleTheme">
+        <v-icon>{{ isDark ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
+      </v-btn>
+      <v-menu>
+        <template #activator="{ props }">
+          <v-btn v-bind="props" icon>
+            <v-avatar color="primary" size="36">
+              <span>{{ initials }}</span>
+            </v-avatar>
+          </v-btn>
+        </template>
+        <v-list>
+          <v-list-item to="/app/profile" title="Profile" />
+          <v-list-item to="/app/profile" subtitle="Subscription" title="Manage tier" />
+          <v-list-item @click="authStore.logout()" title="Logout" />
+        </v-list>
+      </v-menu>
+    </v-app-bar>
+
+    <v-main>
+      <div class="bg-gradient" />
+      <v-container class="py-10" fluid>
         <RouterView />
-      </main>
-    </section>
-  </div>
+      </v-container>
+    </v-main>
+
+    <v-footer class="px-6" app>
+      <span class="text-body-2">© {{ new Date().getFullYear() }} SkewPlay · Inspired by “Machine Learning for Imbalanced Data”</span>
+      <v-spacer />
+      <span class="text-caption text-medium-emphasis">v0.1 – Educational preview</span>
+    </v-footer>
+  </v-layout>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { RouterLink, RouterView } from 'vue-router';
-import { HomeIcon, FolderIcon, BeakerIcon, UserCircleIcon } from '@heroicons/vue/24/outline';
+import { computed, onMounted, ref } from 'vue';
+import { RouterView } from 'vue-router';
+import { useDisplay, useTheme } from 'vuetify';
 import { useAuthStore } from '../../stores/auth';
 import { useDatasetsStore } from '../../stores/datasets';
 import { useWorkflowsStore } from '../../stores/workflows';
-import { onMounted } from 'vue';
 
 const authStore = useAuthStore();
 const datasetsStore = useDatasetsStore();
 const workflowsStore = useWorkflowsStore();
+const theme = useTheme();
+const { mdAndUp } = useDisplay();
 
-const links = computed(() => [
-  { label: 'Dashboard', to: '/app', icon: HomeIcon },
-  { label: 'Datasets', to: '/app/datasets', icon: FolderIcon },
-  { label: 'Workflows', to: '/app/workflows', icon: BeakerIcon },
-  { label: 'Profile', to: '/app/profile', icon: UserCircleIcon },
-]);
+const drawer = ref(true);
+const searchQuery = ref('');
+
+const links = [
+  { label: 'Dashboard', to: '/app', icon: 'mdi-view-dashboard' },
+  { label: 'Datasets', to: '/app/datasets', icon: 'mdi-database-outline' },
+  { label: 'Workflows', to: '/app/workflows', icon: 'mdi-flask-outline' },
+  { label: 'Profile', to: '/app/profile', icon: 'mdi-account-circle-outline' },
+];
+
+const initials = computed(() => {
+  const name = authStore.profile?.displayName ?? authStore.user?.email ?? 'User';
+  return name
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+});
+
+const isDark = computed(() => theme.global.current.value.dark);
+const isDesktop = computed(() => mdAndUp.value);
+const tierLabel = computed(() => {
+  const tier = authStore.profile?.tier ?? 'basic';
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+});
+
+const toggleTheme = () => {
+  theme.global.name.value = isDark.value ? 'skewPlayTheme' : 'skewPlayDarkTheme';
+};
 
 onMounted(() => {
   datasetsStore.init();
@@ -64,120 +155,22 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.app-shell {
-  display: grid;
-  grid-template-columns: 260px 1fr;
+.skew-shell {
   min-height: 100vh;
 }
 
-.sidebar {
-  padding: 2rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+.bg-gradient {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(94, 53, 177, 0.2), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(0, 191, 165, 0.2), transparent 35%),
+    radial-gradient(circle at 50% 50%, rgba(126, 87, 194, 0.2), transparent 60%);
+  z-index: -1;
+  pointer-events: none;
 }
 
-.brand {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.logo-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: linear-gradient(180deg, #22d3ee, #6366f1);
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.6);
-}
-
-.brand-title {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-.brand-subtitle {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #94a3b8;
-}
-
-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  flex: 1;
-}
-
-.nav-link {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  padding: 0.65rem 0.85rem;
-  border-radius: 12px;
-  color: #cbd5f5;
-  text-decoration: none;
-}
-
-.nav-link .icon {
-  width: 20px;
-  height: 20px;
-}
-
-.nav-link.active,
-.nav-link:hover {
-  background: rgba(99, 102, 241, 0.15);
-  color: #fff;
-}
-
-.logout {
-  width: 100%;
-  justify-content: center;
-}
-
-.content {
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.top-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.welcome {
-  margin: 0;
-  font-size: 1.1rem;
-  font-weight: 500;
-}
-
-.tier {
-  margin: 0;
-  color: #94a3b8;
-}
-
-main {
-  flex: 1;
-  min-height: 0;
-}
-
-@media (max-width: 900px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
-  .sidebar {
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
+.app-search {
+  max-width: 320px;
 }
 </style>
 

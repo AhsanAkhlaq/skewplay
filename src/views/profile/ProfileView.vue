@@ -1,24 +1,30 @@
 <template>
-  <section class="surface profile-card">
-    <h2>Profile</h2>
-    <form @submit.prevent="handleSave">
-      <label>
-        Display name
-        <input class="input" v-model="displayName" placeholder="Your name" />
-      </label>
-      <label>
-        Tier
-        <select class="input" v-model="tier">
-          <option value="basic">Basic (free)</option>
-          <option value="advanced">Advanced (mock upgrade)</option>
-        </select>
-      </label>
-      <button class="btn btn-primary">Update profile</button>
-    </form>
-    <p class="note">
-      Subscription management and Stripe integration will be wired in the next milestone. For now you can toggle tier to unlock UI experiments.
-    </p>
-  </section>
+  <v-container class="py-8" max-width="720">
+    <v-card elevation="3" class="pa-6">
+      <v-card-title>Profile</v-card-title>
+      <v-divider />
+      <v-card-text>
+        <v-form @submit.prevent="handleSave" class="d-flex flex-column ga-4">
+          <v-text-field v-model="displayName" label="Display name" placeholder="Your name" />
+          <v-select
+            v-model="tier"
+            label="Tier"
+            :items="[
+              { title: 'Basic (free)', value: 'basic' },
+              { title: 'Advanced (mock upgrade)', value: 'advanced' },
+            ]"
+          />
+          <v-btn type="submit" color="primary" size="large">
+            <v-icon start icon="mdi-content-save" />
+            Update profile
+          </v-btn>
+        </v-form>
+        <v-alert class="mt-6" type="info" variant="tonal">
+          Subscription management and Stripe integration will be wired in the next milestone. Toggle tiers to preview Advanced-only UI.
+        </v-alert>
+      </v-card-text>
+    </v-card>
+  </v-container>
 </template>
 
 <script setup lang="ts">
@@ -45,19 +51,4 @@ const handleSave = async () => {
   });
 };
 </script>
-
-<style scoped>
-.profile-card {
-  max-width: 520px;
-}
-
-form {
-  display: grid;
-  gap: 1rem;
-}
-
-.note {
-  color: #94a3b8;
-}
-</style>
 

@@ -2,7 +2,7 @@
 
 This `frontend/` workspace implements the first 10 % milestone for the SkewPlay platform:
 
-- Vue 3 + TypeScript + Vite + Pinia + Vue Router
+- Vue 3 + TypeScript + Vite + Pinia + Vue Router + Vuetify 3
 - Firebase Auth + Firestore + Storage bootstrap (modular SDK v10)
 - Minimal, modern UI shell (Landing, Auth, Dashboard, Datasets, Workflows, Profile)
 - CRUD flows covering UC-01/02/03/05/13 from the SRS

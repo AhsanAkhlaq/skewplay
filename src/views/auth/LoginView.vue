@@ -1,23 +1,24 @@
 <template>
-  <main class="auth">
-    <section class="surface auth-card">
-      <p class="eyebrow">Welcome back</p>
-      <h1>Log in to SkewPlay</h1>
-      <form @submit.prevent="handleLogin">
-        <label>
-          Email
-          <input class="input" type="email" v-model="email" required />
-        </label>
-        <label>
-          Password
-          <input class="input" type="password" v-model="password" required />
-        </label>
-        <button class="btn btn-primary">Continue</button>
-      </form>
-      <p class="error" v-if="error">{{ error }}</p>
-      <RouterLink to="/register" class="link">Need an account? Sign up</RouterLink>
-    </section>
-  </main>
+  <div class="gradient-page auth-shell">
+    <v-container class="d-flex justify-center align-center" style="min-height: 90vh">
+      <v-card max-width="420" class="pa-8 md-glass" elevation="12">
+        <p class="text-uppercase text-medium-emphasis text-caption mb-1">Welcome back</p>
+        <h1 class="text-h4 font-weight-bold mb-4">Log in to SkewPlay</h1>
+        <v-form @submit.prevent="handleLogin" class="d-flex flex-column ga-4">
+          <v-text-field v-model="email" label="Email" type="email" required />
+          <v-text-field v-model="password" label="Password" type="password" required />
+          <v-btn type="submit" color="primary" size="large">Continue</v-btn>
+        </v-form>
+        <v-alert v-if="error" type="error" variant="tonal" class="mt-4">
+          {{ error }}
+        </v-alert>
+        <p class="text-body-2 mt-6">
+          Need an account?
+          <RouterLink to="/register">Sign up</RouterLink>
+        </p>
+      </v-card>
+    </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -40,35 +41,4 @@ const handleLogin = async () => {
   }
 };
 </script>
-
-<style scoped>
-.auth {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 90vh;
-  padding: 2rem;
-}
-
-.auth-card {
-  max-width: 420px;
-  width: 100%;
-}
-
-form {
-  display: grid;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.error {
-  color: #f87171;
-}
-
-.link {
-  display: inline-block;
-  margin-top: 1rem;
-  color: #a5b4fc;
-}
-</style>
 

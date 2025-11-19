@@ -11,10 +11,14 @@
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
+    "@mdi/font": "^7.4.47",
     "firebase": "^12.6.0",
     "pinia": "^3.0.4",
+    "sass": "^1.94.1",
+    "vite-plugin-vuetify": "^2.1.2",
     "vue": "^3.5.24",
-    "vue-router": "^4.6.3"
+    "vue-router": "^4.6.3",
+    "vuetify": "^3.10.11"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

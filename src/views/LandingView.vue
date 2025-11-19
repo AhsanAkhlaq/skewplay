@@ -1,87 +1,48 @@
 <template>
-  <main class="landing">
-    <div class="hero surface">
-      <p class="eyebrow">SkewPlay · No-code ML Lab</p>
-      <h1>Balance your datasets without writing code.</h1>
-      <p class="subtitle">
-        Upload CSVs, analyze imbalance, prototype mitigation strategies, and
-        save workflows — all inside a guided Vue + Firebase experience.
-      </p>
-      <div class="actions">
-        <RouterLink to="/register" class="btn btn-primary">Get Started</RouterLink>
-        <RouterLink to="/login" class="btn btn-ghost">I already have an account</RouterLink>
-      </div>
-    </div>
-
-    <section class="feature-grid">
-      <article class="surface">
-        <h3>Guided pipelines</h3>
-        <p>Follow the Upload → Balance → Train → Evaluate journey with tooltips and inline tutorials.</p>
-      </article>
-      <article class="surface">
-        <h3>Realtime storage</h3>
-        <p>Datasets, workflows, and experiments sync live via Firebase Firestore and Storage.</p>
-      </article>
-      <article class="surface">
-        <h3>Explainable insights</h3>
-        <p>Embed excerpts, formulas, and AI recommendations sourced from the SRS playbook.</p>
-      </article>
-    </section>
-  </main>
+  <div class="gradient-page">
+    <v-container class="py-12" max-width="960">
+      <v-card class="pa-10 md-glass text-center" elevation="10">
+        <p class="text-uppercase text-medium-emphasis text-caption mb-2">SkewPlay · No-code ML Lab</p>
+        <h1 class="text-h3 font-weight-bold mb-4">Balance your datasets without writing code.</h1>
+        <p class="text-body-1 text-medium-emphasis mb-6">
+          Upload CSVs, analyze imbalance, prototype mitigation strategies, and save workflows — all
+          in a guided Vue + Firebase experience inspired by “Machine Learning for Imbalanced Data”.
+        </p>
+        <div class="d-flex flex-wrap justify-center ga-4 mb-6">
+          <v-btn size="large" color="primary" to="/register">
+            Get started
+          </v-btn>
+          <v-btn size="large" variant="tonal" to="/login">
+            I already have an account
+          </v-btn>
+        </div>
+        <v-row class="ga-4" align="stretch">
+          <v-col cols="12" md="4">
+            <v-sheet class="pa-6 rounded-xl" elevation="2">
+              <h3 class="text-subtitle-1 font-weight-bold mb-2">Guided pipelines</h3>
+              <p class="text-body-2 text-medium-emphasis">
+                Follow the Upload → Balance → Train → Evaluate journey with inline tutorials.
+              </p>
+            </v-sheet>
+          </v-col>
+          <v-col cols="12" md="4">
+            <v-sheet class="pa-6 rounded-xl" elevation="2">
+              <h3 class="text-subtitle-1 font-weight-bold mb-2">Realtime storage</h3>
+              <p class="text-body-2 text-medium-emphasis">
+                Datasets, workflows, and experiments sync live via Firebase Auth, Firestore, and Storage.
+              </p>
+            </v-sheet>
+          </v-col>
+          <v-col cols="12" md="4">
+            <v-sheet class="pa-6 rounded-xl" elevation="2">
+              <h3 class="text-subtitle-1 font-weight-bold mb-2">Explainable insights</h3>
+              <p class="text-body-2 text-medium-emphasis">
+                Embed excerpts, formulas, and AI recommendations sourced directly from the SRS playbook.
+              </p>
+            </v-sheet>
+          </v-col>
+        </v-row>
+      </v-card>
+    </v-container>
+  </div>
 </template>
-
-<script setup lang="ts">
-import { RouterLink } from 'vue-router';
-</script>
-
-<style scoped>
-.landing {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 3rem 1.25rem 4rem;
-  color: #f1f5f9;
-}
-
-.hero {
-  text-align: center;
-}
-
-.eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.25em;
-  font-size: 0.8rem;
-  color: #a3bffa;
-}
-
-h1 {
-  font-size: clamp(2.5rem, 5vw, 3.3rem);
-  margin: 0.75rem 0;
-}
-
-.subtitle {
-  max-width: 640px;
-  margin: 0 auto 1.5rem;
-  color: #cbd5f5;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.feature-grid {
-  margin-top: 2.5rem;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.25rem;
-}
-
-h3 {
-  margin-top: 0;
-  margin-bottom: 0.5rem;
-}
-</style>
-

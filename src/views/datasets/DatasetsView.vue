@@ -1,51 +1,90 @@
 <template>
-  <div class="grid">
-    <section class="surface form-card">
-      <h2>Create dataset</h2>
-      <form @submit.prevent="handleSubmit">
-        <label>
-          Name
-          <input class="input" v-model="form.name" required placeholder="Fraud detection dataset" />
-        </label>
-        <label>
-          Description
-          <textarea class="input" rows="3" v-model="form.description" placeholder="Short summary of the dataset" />
-        </label>
-        <label>
-          Target column
-          <input class="input" v-model="form.targetColumn" placeholder="class" />
-        </label>
-        <label>
-          Source type
-          <select class="input" v-model="form.sourceType">
-            <option value="upload">Upload</option>
-            <option value="sample">Sample</option>
-          </select>
-        </label>
-        <button class="btn btn-primary" type="submit">Save dataset</button>
-      </form>
-    </section>
+  <v-row class="ga-6" align="stretch">
+    <v-col cols="12" md="4">
+      <v-card elevation="3">
+        <v-card-title class="d-flex justify-space-between align-center">
+          {{ form.id ? 'Edit dataset' : 'Create dataset' }}
+          <v-btn v-if="form.id" icon="mdi-close" variant="text" @click="resetForm" />
+        </v-card-title>
+        <v-divider />
+        <v-card-text>
+          <v-form @submit.prevent="handleSubmit" class="d-flex flex-column ga-4">
+            <v-text-field
+              v-model="form.name"
+              label="Name"
+              placeholder="Fraud detection dataset"
+              required
+            />
+            <v-textarea
+              v-model="form.description"
+              label="Description"
+              placeholder="Short summary of the dataset"
+              rows="3"
+            />
+            <v-text-field
+              v-model="form.targetColumn"
+              label="Target column"
+              placeholder="class"
+            />
+            <v-select
+              v-model="form.sourceType"
+              label="Source type"
+              :items="sourceOptions"
+            />
+            <v-btn type="submit" color="primary" size="large">
+              <v-icon start icon="mdi-content-save" />
+              {{ form.id ? 'Update dataset' : 'Save dataset' }}
+            </v-btn>
+          </v-form>
+        </v-card-text>
+      </v-card>
+    </v-col>
 
-    <section class="grid">
-      <article v-for="dataset in datasetsStore.datasets" :key="dataset.id" class="surface dataset-card">
-        <header>
-          <div>
-            <p class="card-heading">{{ dataset.name }}</p>
-            <small>{{ dataset.description }}</small>
-          </div>
-          <span class="badge">{{ dataset.sourceType }}</span>
-        </header>
-        <p class="meta">Target: {{ dataset.targetColumn || 'N/A' }}</p>
-        <footer>
-          <button class="btn btn-ghost" @click="startEdit(dataset)">Edit</button>
-          <button class="btn btn-ghost" @click="datasetsStore.deleteDataset(dataset.id)">Delete</button>
-        </footer>
-      </article>
-      <p v-if="datasetsStore.datasets.length === 0" class="empty-state">
-        No datasets yet. Use the form to add your first CSV metadata.
-      </p>
-    </section>
-  </div>
+    <v-col cols="12" md="8">
+      <v-row v-if="datasetsStore.datasets.length" class="ga-4">
+        <v-col v-for="dataset in datasetsStore.datasets" :key="dataset.id" cols="12" sm="6">
+          <v-card rounded="xl" elevation="2">
+            <v-card-item>
+              <div class="d-flex justify-space-between align-start">
+                <div>
+                  <v-card-title class="text-h6">{{ dataset.name }}</v-card-title>
+                  <v-card-subtitle>{{ dataset.description || 'No description yet' }}</v-card-subtitle>
+                </div>
+                <v-chip size="small" color="secondary" variant="tonal">
+                  {{ dataset.sourceType }}
+                </v-chip>
+              </div>
+            </v-card-item>
+            <v-divider />
+            <v-card-text>
+              <p class="text-caption text-medium-emphasis mb-1">Target column</p>
+              <p class="text-body-2 font-weight-medium">{{ dataset.targetColumn || 'N/A' }}</p>
+            </v-card-text>
+            <v-card-actions class="justify-end ga-2">
+              <v-btn variant="text" color="primary" @click="startEdit(dataset)">
+                <v-icon start icon="mdi-pencil" />
+                Edit
+              </v-btn>
+              <v-btn variant="text" color="error" @click="datasetsStore.deleteDataset(dataset.id)">
+                <v-icon start icon="mdi-delete-outline" />
+                Delete
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-col>
+      </v-row>
+      <v-empty-state
+        v-else
+        icon="mdi-database-outline"
+        title="No datasets yet"
+        text="Add your first CSV metadata to begin exploring imbalance techniques."
+      >
+        <template #actions>
+          <v-btn color="primary" @click="resetForm">Create dataset</v-btn>
+        </template>
+      </v-empty-state>
+    </v-col>
+  </v-row>
 </template>
 
 <script setup lang="ts">
@@ -61,6 +100,11 @@ const form = reactive({
   targetColumn: '',
   sourceType: 'upload' as Dataset['sourceType'],
 });
+
+const sourceOptions = [
+  { title: 'Upload', value: 'upload' },
+  { title: 'Sample', value: 'sample' },
+];
 
 const resetForm = () => {
   form.id = '';
@@ -93,39 +137,4 @@ const startEdit = (dataset: Dataset) => {
   form.sourceType = dataset.sourceType;
 };
 </script>
-
-<style scoped>
-.form-card form {
-  display: grid;
-  gap: 1rem;
-}
-
-.dataset-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-footer {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.meta {
-  color: #cbd5f5;
-  margin: 0;
-}
-
-.empty-state {
-  text-align: center;
-  color: #94a3b8;
-}
-</style>
 
