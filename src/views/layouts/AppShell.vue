@@ -1,111 +1,167 @@
 <template>
-  <v-layout class="skew-shell">
-    <v-navigation-drawer v-model="drawer" :rail="isDesktop ? false : true" permanent>
-      <v-list density="comfortable">
-        <v-list-item>
-          <template #prepend>
-            <v-avatar color="primary" size="36">
-              <v-icon>mdi-triangle</v-icon>
-            </v-avatar>
-          </template>
-          <v-list-item-title class="font-weight-bold">SkewPlay</v-list-item-title>
-          <v-list-item-subtitle>No-code ML Lab</v-list-item-subtitle>
-        </v-list-item>
-      </v-list>
+  <v-layout class="shell-wrapper">
+    
+    <v-navigation-drawer 
+      v-model="drawer" 
+      :permanent="mdAndUp" 
+      :temporary="!mdAndUp"
+      class="bg-glass-nav border-none"
+      elevation="0"
+      width="280"
+    >
+      <div class="pa-6 pb-2 d-flex align-center">
+        <v-avatar color="primary" size="42" rounded="lg" variant="flat" class="me-3 elevation-4">
+          <v-icon icon="mdi-play-box-multiple-outline" color="white" size="26" style="transform: rotate(-10deg);"></v-icon>
+        </v-avatar>
+        <div>
+          <div class="text-h6 font-weight-bold text-white" style="line-height: 1.1; letter-spacing: -0.5px;">SkewPlay</div>
+          <div class="text-caption text-secondary font-weight-bold">No-code ML Lab</div>
+        </div>
+      </div>
 
-      <v-divider class="my-2" />
+      <v-divider class="mb-4 mx-6 opacity-20" color="white"></v-divider>
 
-      <v-list density="compact" nav>
+      <v-list density="comfortable" nav class="px-4">
         <v-list-item
           v-for="item in links"
           :key="item.to"
           :to="item.to"
-          link
+          active-class="nav-active"
           rounded="lg"
-          class="text-body-2"
+          class="mb-1 text-grey-lighten-1"
+          link
         >
-          <template #prepend>
-            <v-icon :icon="item.icon" />
+          <template v-slot:prepend>
+            <v-icon :icon="item.icon" size="22"></v-icon>
           </template>
-          <v-list-item-title>{{ item.label }}</v-list-item-title>
+          <v-list-item-title class="font-weight-medium">{{ item.label }}</v-list-item-title>
         </v-list-item>
       </v-list>
 
-      <v-divider class="my-4" />
-
-      <div class="px-4 pb-4">
-        <p class="text-caption mb-2 text-medium-emphasis">Quick start</p>
-        <v-btn block color="primary" class="mb-2" to="/app/datasets" variant="elevated">
-          <v-icon start icon="mdi-upload" />
-          Upload dataset
-        </v-btn>
-        <v-btn block color="secondary" variant="tonal" to="/app/workflows">
-          <v-icon start icon="mdi-flask-outline" />
-          New workflow
-        </v-btn>
-      </div>
-
-      <template #append>
+      <template v-slot:append>
         <div class="pa-4">
-          <v-btn block variant="text" @click="authStore.logout()">
-            <v-icon start icon="mdi-logout" />
-            Logout
+          <v-card color="rgba(255,255,255,0.05)" variant="flat" class="pa-4 rounded-lg border-thin mb-4">
+             <div class="text-caption font-weight-bold mb-3 text-white text-uppercase opacity-70">Quick Start</div>
+             
+             <v-btn 
+                block 
+                color="primary" 
+                to="/app/datasets" 
+                class="mb-2 text-capitalize font-weight-bold"
+                prepend-icon="mdi-cloud-upload"
+                size="small"
+                elevation="2"
+             >
+               Upload Dataset
+             </v-btn>
+
+             <v-btn 
+                block 
+                variant="outlined" 
+                color="white"
+                to="/app/workflows" 
+                class="text-capitalize"
+                prepend-icon="mdi-flask-plus"
+                size="small"
+             >
+               New Workflow
+             </v-btn>
+          </v-card>
+          
+          <v-btn 
+            block 
+            variant="text" 
+            color="grey-lighten-1" 
+            prepend-icon="mdi-logout"
+            class="text-capitalize"
+            @click="handleLogout"
+          >
+            Sign Out
           </v-btn>
         </div>
       </template>
     </v-navigation-drawer>
 
-    <v-app-bar rounded="0" elevation="0">
-      <v-app-bar-nav-icon class="d-md-none" @click="drawer = !drawer" />
+    <v-app-bar color="transparent" elevation="0" height="72" class="px-2 backdrop-blur">
+      <v-app-bar-nav-icon class="d-md-none" :color="isDark ? 'white' : 'black'" @click="drawer = !drawer"></v-app-bar-nav-icon>
+      
       <v-text-field
         v-model="searchQuery"
         prepend-inner-icon="mdi-magnify"
-        label="Search workflows"
+        placeholder="Search workflows..."
+        variant="outlined"
+        density="compact"
         hide-details
-        clearable
-        class="app-search"
-      />
-      <v-spacer />
-      <v-chip class="mr-3" color="primary" variant="tonal">
-        {{ tierLabel }}
-      </v-chip>
-      <v-btn icon @click="toggleTheme">
-        <v-icon>{{ isDark ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
-      </v-btn>
-      <v-menu>
-        <template #activator="{ props }">
-          <v-btn v-bind="props" icon>
-            <v-avatar color="primary" size="36">
-              <span>{{ initials }}</span>
-            </v-avatar>
-          </v-btn>
-        </template>
-        <v-list>
-          <v-list-item to="/app/profile" title="Profile" />
-          <v-list-item to="/app/profile" subtitle="Subscription" title="Manage tier" />
-          <v-list-item @click="authStore.logout()" title="Logout" />
-        </v-list>
-      </v-menu>
+        rounded="lg"
+        :base-color="isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'"
+        :bg-color="isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)'"
+        :color="isDark ? 'white' : 'primary'"
+        class="app-search ms-2"
+        style="max-width: 350px;"
+      ></v-text-field>
+
+      <v-spacer></v-spacer>
+
+      <div class="d-flex align-center ga-2 me-2">
+        <v-chip 
+            class="font-weight-bold d-none d-sm-flex border-thin" 
+            color="secondary" 
+            variant="text"
+            prepend-icon="mdi-star-four-points-outline"
+            size="small"
+        >
+          {{ tierLabel }} Tier
+        </v-chip>
+
+        <v-btn icon size="small" @click="toggleTheme" color="grey-lighten-1">
+          <v-icon>{{ isDark ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
+        </v-btn>
+
+        <v-menu location="bottom end" transition="slide-y-transition" offset="10">
+          <template v-slot:activator="{ props }">
+            <v-btn icon v-bind="props" class="ms-1">
+              <v-avatar color="secondary" size="38" class="elevation-2">
+                <v-img v-if="authStore.profile?.photoURL" :src="authStore.profile.photoURL" alt="Avatar"></v-img>
+                <span v-else class="font-weight-bold text-white">{{ initials }}</span>
+              </v-avatar>
+            </v-btn>
+          </template>
+          
+          <v-list width="220" class="rounded-lg bg-surface border-thin" density="compact">
+            <div class="px-4 py-2">
+              <div class="text-subtitle-2 font-weight-bold">{{ authStore.profile?.displayName || 'User' }}</div>
+              <div class="text-caption text-medium-emphasis text-truncate">{{ authStore.profile?.email }}</div>
+            </div>
+            <v-divider class="my-1"></v-divider>
+            <v-list-item to="/app/profile" prepend-icon="mdi-account-cog-outline" title="Profile Settings"></v-list-item>
+            <v-list-item @click="handleLogout" prepend-icon="mdi-logout" title="Log Out" color="error"></v-list-item>
+          </v-list>
+        </v-menu>
+      </div>
     </v-app-bar>
 
     <v-main>
-      <div class="bg-gradient" />
-      <v-container class="py-10" fluid>
-        <RouterView />
+      <div class="bg-gradient-fixed" :style="{ opacity: isDark ? 1 : 0 }"></div>
+      
+      <v-container class="py-6 px-4 px-md-8 h-100" fluid>
+        <router-view v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
       </v-container>
     </v-main>
 
-    <v-footer class="px-6" app>
-      <span class="text-body-2">© {{ new Date().getFullYear() }} SkewPlay · Inspired by “Machine Learning for Imbalanced Data”</span>
-      <v-spacer />
-      <span class="text-caption text-medium-emphasis">v0.1 – Educational preview</span>
+    <v-footer app color="transparent" class="text-caption text-medium-emphasis justify-center py-4">
+       <span>© {{ new Date().getFullYear() }} SkewPlay</span>
     </v-footer>
+
   </v-layout>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { RouterView } from 'vue-router';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useDisplay, useTheme } from 'vuetify';
 import { useAuthStore } from '../../stores/auth';
 import { useDatasetsStore } from '../../stores/datasets';
@@ -115,30 +171,26 @@ const authStore = useAuthStore();
 const datasetsStore = useDatasetsStore();
 const workflowsStore = useWorkflowsStore();
 const theme = useTheme();
+const router = useRouter();
 const { mdAndUp } = useDisplay();
 
 const drawer = ref(true);
 const searchQuery = ref('');
 
 const links = [
-  { label: 'Dashboard', to: '/app', icon: 'mdi-view-dashboard' },
+  { label: 'Dashboard', to: '/app/dashboard', icon: 'mdi-view-dashboard-outline' },
   { label: 'Datasets', to: '/app/datasets', icon: 'mdi-database-outline' },
-  { label: 'Workflows', to: '/app/workflows', icon: 'mdi-flask-outline' },
+  { label: 'Workflows', to: '/app/workflows', icon: 'mdi-state-machine' },
   { label: 'Profile', to: '/app/profile', icon: 'mdi-account-circle-outline' },
 ];
 
 const initials = computed(() => {
-  const name = authStore.profile?.displayName ?? authStore.user?.email ?? 'User';
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const name = authStore.profile?.displayName ?? authStore.user?.email ?? 'U';
+  return name.substring(0, 2).toUpperCase();
 });
 
 const isDark = computed(() => theme.global.current.value.dark);
-const isDesktop = computed(() => mdAndUp.value);
+
 const tierLabel = computed(() => {
   const tier = authStore.profile?.tier ?? 'basic';
   return tier.charAt(0).toUpperCase() + tier.slice(1);
@@ -148,29 +200,113 @@ const toggleTheme = () => {
   theme.global.name.value = isDark.value ? 'skewPlayTheme' : 'skewPlayDarkTheme';
 };
 
-onMounted(() => {
-  datasetsStore.init();
-  workflowsStore.init();
+const INACTIVITY_LIMIT = 30 * 60 * 1000; 
+let inactivityTimer: any = null;
+
+const handleAutoLogout = async () => {
+  await authStore.logout();
+  // Redirect to login with a query param so we can show a message
+  router.push('/login?reason=inactivity');
+};
+const resetTimer = () => {
+  // 1. Reset the in-memory timer (for while tab is open)
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(handleAutoLogout, INACTIVITY_LIMIT);
+
+  // 2. Update Local Storage (for if they close and reopen tab later)
+  // We throttle this slightly so we don't write to disk on every single mouse pixel move
+  // But for simplicity, setting it here is fine.
+  localStorage.setItem('lastActiveTime', Date.now().toString());
+};
+
+const setupActivityListeners = () => {
+  // Events that count as "Activity"
+  const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+  events.forEach(event => window.addEventListener(event, resetTimer));
+  resetTimer(); // Start the timer immediately
+};
+
+const removeActivityListeners = () => {
+  const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+  events.forEach(event => window.removeEventListener(event, resetTimer));
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+};
+
+// --- LIFECYCLE ---
+
+const handleLogout = async () => {
+    await authStore.logout();
+    router.push('/login');
+};
+
+onMounted(async () => {
+  if (authStore.user) {
+     // 1. Start Auto Logout Timer
+     setupActivityListeners();
+
+     // 2. Fetch Data
+     await Promise.all([
+         datasetsStore.fetchDatasets(),
+         workflowsStore.fetchWorkflows()
+     ]);
+  }
+});
+
+// Cleanup when component is destroyed (user logs out or leaves app)
+onUnmounted(() => {
+  removeActivityListeners();
 });
 </script>
 
 <style scoped>
-.skew-shell {
+.shell-wrapper {
   min-height: 100vh;
+  /* FIX: Explicitly force text color to match theme (White in Dark, Black in Light) */
+  color: rgb(var(--v-theme-on-background));
+  background-color: rgb(var(--v-theme-background)); 
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.bg-gradient {
+/* FIX: Removed the broken .v-theme--... selectors. Using inline style binding instead */
+.bg-gradient-fixed {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at 20% 20%, rgba(94, 53, 177, 0.2), transparent 45%),
-    radial-gradient(circle at 80% 0%, rgba(0, 191, 165, 0.2), transparent 35%),
-    radial-gradient(circle at 50% 50%, rgba(126, 87, 194, 0.2), transparent 60%);
-  z-index: -1;
+  background: 
+    radial-gradient(circle at 15% 15%, rgba(94, 53, 177, 0.12), transparent 40%),
+    radial-gradient(circle at 85% 10%, rgba(34, 211, 238, 0.08), transparent 40%),
+    linear-gradient(180deg, #0F172A 0%, #0b1121 100%);
+  z-index: 0;
   pointer-events: none;
+  transition: opacity 0.3s ease;
 }
 
-.app-search {
-  max-width: 320px;
+.bg-glass-nav {
+  background: rgba(15, 23, 42, 0.7) !important;
+  backdrop-filter: blur(12px);
+  border-right: 1px solid rgba(255,255,255,0.05) !important;
+}
+
+.nav-active {
+  background: linear-gradient(90deg, rgba(94, 53, 177, 0.2) 0%, transparent 100%);
+  color: rgb(var(--v-theme-secondary)) !important;
+  border-left: 3px solid rgb(var(--v-theme-secondary));
+  border-radius: 0 8px 8px 0 !important;
+}
+
+.border-thin {
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.backdrop-blur {
+  backdrop-filter: blur(8px);
+}
+
+/* Search Bar Fix */
+:deep(.app-search .v-field__input) {
+    color: inherit !important; /* Inherit from theme */
+}
+:deep(.v-main .v-container) {
+  position: relative;
+  z-index: 1; 
 }
 </style>
-

@@ -1,213 +1,302 @@
 <template>
-  <v-row class="dashboard-gap" align="stretch">
-    <v-col cols="12">
-      <v-card class="pa-6 hero" elevation="3">
-        <v-row align="center">
-          <v-col cols="12" md="8">
-            <p class="text-uppercase text-medium-emphasis text-caption mb-1">Your mission</p>
-            <h2 class="text-h4 font-weight-bold mb-2">
-              Welcome back, {{ name }}! Ready to balance some data?
-            </h2>
-            <p class="text-body-1 mb-4">
-              You have run {{ experimentsRun }} experiments with {{ workflowsStore.workflows.length }} workflows saved.
-              Continue where you left off or forge a new pipeline inspired by our imbalance playbook.
-            </p>
-            <div class="d-flex flex-wrap ga-3">
-              <v-btn color="primary" size="large" to="/app/workflows">
-                <v-icon start icon="mdi-flash" />
-                Start workflow
-              </v-btn>
-              <v-btn color="secondary" variant="tonal" size="large" to="/app/datasets">
-                <v-icon start icon="mdi-upload" />
-                Upload dataset
-              </v-btn>
-            </div>
-          </v-col>
-          <v-col cols="12" md="4" class="text-center">
-            <v-sheet class="rounded-xl pa-4 gradient-card">
-              <p class="text-caption text-medium-emphasis mb-2">Active stage</p>
-              <p class="text-h2 font-weight-bold mb-1">{{ activeStageLabel }}</p>
-              <p class="text-body-2 text-medium-emphasis">{{ latestWorkflow?.title ?? 'No workflow yet' }}</p>
-              <v-chip v-if="latestWorkflow" class="mt-3" color="accent" variant="flat">
-                {{ latestWorkflow.objective }}
-              </v-chip>
-            </v-sheet>
-          </v-col>
-        </v-row>
-      </v-card>
-    </v-col>
-
-    <v-col cols="12" md="4">
-      <v-card elevation="2" class="h-100">
-        <v-card-title class="d-flex justify-space-between align-center">
-          Recent workflows
-          <v-btn icon="mdi-chevron-right" variant="text" to="/app/workflows" />
-        </v-card-title>
-        <v-divider />
-        <v-list lines="two">
-          <v-list-item
-            v-for="workflow in recentWorkflows"
-            :key="workflow.id"
-            :to="`/app/workflows`"
-          >
-            <template #prepend>
-              <v-avatar color="secondary" size="36">
-                <v-icon>mdi-flask</v-icon>
-              </v-avatar>
-            </template>
-            <v-list-item-title>{{ workflow.title }}</v-list-item-title>
-            <v-list-item-subtitle>{{ workflow.objective }}</v-list-item-subtitle>
-            <template #append>
-              <v-chip size="small" color="primary" variant="tonal">
-                {{ stageLabels[workflow.stage] }}
-              </v-chip>
-            </template>
-          </v-list-item>
-          <v-list-item v-if="recentWorkflows.length === 0">
-            <v-list-item-title>No workflows yet</v-list-item-title>
-            <v-list-item-subtitle>Create your first experiment to see it here.</v-list-item-subtitle>
-          </v-list-item>
-        </v-list>
-      </v-card>
-    </v-col>
-
-    <v-col cols="12" md="4">
-      <v-card elevation="2" class="h-100">
-        <v-card-title>User stats</v-card-title>
-        <v-divider />
-        <v-card-text>
-          <div class="mb-4">
-            <p class="text-caption text-medium-emphasis mb-1">Experiments completed</p>
-            <div class="d-flex align-center justify-space-between mb-1">
-              <p class="text-h5 mb-0">{{ experimentsRun }}</p>
-              <p class="text-body-2 text-medium-emphasis">goal: 25</p>
-            </div>
-            <v-progress-linear :model-value="progressPercent" color="primary" rounded height="10" />
+  <v-container fluid class="pa-0">
+    <!-- 1. HERO SECTION -->
+    <v-row class="mb-6">
+      <v-col cols="12">
+        <v-card
+          elevation="0"
+          class="pa-8 rounded-xl position-relative overflow-hidden bg-primary"
+          style="z-index: 1;"
+        >
+          <!-- Background Decoration -->
+          <div class="position-absolute" style="right: -40px; top: -40px; opacity: 0.15; transform: rotate(-15deg);">
+             <v-icon icon="mdi-scale-balance" size="300" color="white"></v-icon>
           </div>
-          <div class="mb-4">
-            <p class="text-caption text-medium-emphasis mb-1">Storage used</p>
-            <div class="d-flex justify-space-between text-body-2 mb-1">
-              <span>{{ storageUsed }} GB</span>
-              <span>out of 5 GB</span>
-            </div>
-            <v-progress-linear :model-value="storagePercent" color="secondary" rounded height="10" />
+
+          <v-row align="center">
+            <v-col cols="12" md="8">
+              <div class="d-flex align-center mb-2">
+                <v-chip size="small" color="white" variant="outlined" class="me-2 font-weight-bold">
+                  {{ currentTier }} Tier
+                </v-chip>
+                <span class="text-caption text-white opacity-80 text-uppercase font-weight-bold">Your Mission</span>
+              </div>
+              
+              <h1 class="text-h4 text-md-h3 font-weight-bold text-white mb-3">
+                Welcome back, {{ name }}!
+              </h1>
+              
+              <p class="text-subtitle-1 text-white opacity-90 mb-6" style="max-width: 600px;">
+                You have used <strong>{{ workflowCount }} of {{ workflowLimitLabel }} workflows</strong>. 
+                Ready to tackle some new imbalance challenges today?
+              </p>
+
+              <div class="d-flex flex-wrap ga-4">
+                <!-- Disable only if Basic AND limit reached -->
+                <v-btn
+                  size="large"
+                  color="white"
+                  class="text-primary font-weight-bold"
+                  prepend-icon="mdi-plus"
+                  to="/app/datasets"
+                  elevation="2"
+                  :disabled="isBasic && workflowCount >= 5"
+                >
+                  New Experiment
+                </v-btn>
+                
+                <v-btn
+                  size="large"
+                  variant="outlined"
+                  color="white"
+                  prepend-icon="mdi-school-outline"
+                  to="/app/profile"
+                >
+                  View Tutorials
+                </v-btn>
+              </div>
+            </v-col>
+
+            <!-- Active Stage Widget (Desktop Only) -->
+            <v-col cols="12" md="4" class="d-none d-md-block text-right">
+               <v-card class="d-inline-block text-start pa-4 rounded-lg glass-card" style="min-width: 240px; background: rgba(255,255,255,0.1);">
+                  <div class="text-caption text-white opacity-70 mb-1">Last Active Stage</div>
+                  <div class="text-h4 font-weight-bold text-white mb-1">
+                    {{ activeStageLabel }}
+                  </div>
+                  <div class="d-flex align-center text-caption text-secondary font-weight-bold">
+                    <v-icon icon="mdi-clock-outline" size="small" class="me-1"></v-icon>
+                    {{ latestWorkflow?.name ?? 'Ready to start' }}
+                  </div>
+               </v-card>
+            </v-col>
+          </v-row>
+        </v-card>
+      </v-col>
+    </v-row>
+
+    <!-- 2. MAIN GRID -->
+    <v-row>
+      
+      <!-- LEFT COLUMN: Recent Workflows -->
+      <v-col cols="12" md="8">
+        <div class="d-flex align-center justify-space-between mb-4">
+          <!-- FIX: text-high-emphasis ensures visibility in Dark Mode -->
+          <h3 class="text-h6 font-weight-bold text-high-emphasis">Recent Workflows</h3>
+          <v-btn variant="text" size="small" color="primary" to="/app/workflows" append-icon="mdi-arrow-right">
+            View All
+          </v-btn>
+        </div>
+
+        <v-card elevation="0" class="rounded-lg border" style="background: transparent;">
+          
+          <!-- Loading State -->
+          <div v-if="workflowsStore.isLoading" class="pa-8 text-center">
+            <v-progress-circular indeterminate color="primary"></v-progress-circular>
           </div>
-          <div>
-            <p class="text-caption text-medium-emphasis mb-2">Dataset types</p>
-            <div class="d-flex flex-wrap ga-2">
-              <v-chip
-                v-for="type in datasetMix"
-                :key="type.label"
-                color="primary"
-                variant="tonal"
+
+          <v-list v-else bg-color="transparent" lines="two" class="pa-2">
+            
+            <!-- Empty State -->
+            <v-list-item v-if="recentWorkflows.length === 0" class="pa-6 text-center">
+              <template v-slot:prepend>
+                 <div class="mx-auto mb-2">
+                    <v-icon icon="mdi-flask-empty-outline" size="40" color="grey"></v-icon>
+                 </div>
+              </template>
+              <!-- FIX: Readable text color -->
+              <v-list-item-title class="text-body-1 font-weight-bold text-medium-emphasis">No workflows found</v-list-item-title>
+              <v-list-item-subtitle class="text-disabled">Upload a dataset to get started.</v-list-item-subtitle>
+            </v-list-item>
+
+            <!-- Workflow Items -->
+            <template v-else>
+              <v-list-item
+                v-for="wf in recentWorkflows"
+                :key="wf.id"
+                :to="`/app/workflows/${wf.id}`"
+                rounded="lg"
+                class="mb-1 hover-item"
+                link
               >
-                {{ type.label }} · {{ type.value }}
-              </v-chip>
-            </div>
-          </div>
-        </v-card-text>
-      </v-card>
-    </v-col>
+                <template v-slot:prepend>
+                  <v-avatar color="primary" variant="tonal" rounded class="me-3">
+                    <v-icon icon="mdi-file-tree"></v-icon>
+                  </v-avatar>
+                </template>
 
-    <v-col cols="12" md="4">
-      <v-card elevation="2" class="h-100">
-        <v-card-title>Quick actions & tips</v-card-title>
-        <v-divider />
-        <v-card-text class="d-flex flex-column ga-3">
-          <v-btn block color="accent" variant="flat" to="/app/workflows">
-            <v-icon start icon="mdi-robot-outline" />
-            Get AI recommendation
+                <v-list-item-title class="font-weight-bold text-high-emphasis">{{ wf.name }}</v-list-item-title>
+                <v-list-item-subtitle class="text-caption text-medium-emphasis">
+                  {{ wf.status }} • Created {{ new Date(wf.createdAt?.seconds * 1000).toLocaleDateString() }}
+                </v-list-item-subtitle>
+
+                <template v-slot:append>
+                  <v-chip
+                    size="small"
+                    :color="getStageColor(wf.status)"
+                    label
+                    class="font-weight-bold"
+                  >
+                    {{ wf.status }}
+                  </v-chip>
+                </template>
+              </v-list-item>
+            </template>
+          </v-list>
+        </v-card>
+      </v-col>
+
+      <!-- RIGHT COLUMN: Stats & Limits -->
+      <v-col cols="12" md="4">
+        
+        <!-- FIX: text-high-emphasis -->
+        <h3 class="text-h6 font-weight-bold mb-4 text-high-emphasis">Tier Usage</h3>
+        <v-card class="pa-5 mb-6 rounded-lg border bg-surface" elevation="0">
+          
+          <!-- Workflow Limit -->
+          <div class="mb-5">
+             <div class="d-flex justify-space-between text-caption mb-2 font-weight-bold">
+                <span class="text-medium-emphasis">Workflows Created</span>
+                <!-- Red text only if Basic AND over limit -->
+                <span :class="(isBasic && workflowCount >= 5) ? 'text-error' : 'text-primary'">
+                  {{ workflowCount }} / {{ workflowLimitLabel }}
+                </span>
+             </div>
+             <v-progress-linear 
+                :model-value="workflowPercent" 
+                :color="(isBasic && workflowCount >= 5) ? 'error' : 'primary'" 
+                height="8" 
+                rounded
+                striped
+             ></v-progress-linear>
+             
+             <div class="text-caption text-grey mt-1" v-if="isBasic && workflowCount >= 5">
+                Limit reached. Upgrade to create more.
+             </div>
+          </div>
+
+          <!-- Storage Usage -->
+          <div class="mb-4">
+             <div class="d-flex justify-space-between text-caption mb-2 font-weight-bold">
+                <span class="text-medium-emphasis">Storage Used</span>
+                <span :class="storageUsed >= storageLimit ? 'text-error' : 'text-secondary'">
+                  {{ storageUsedFormatted }} GB / {{ storageLimit }} GB
+                </span>
+             </div>
+             <v-progress-linear 
+                :model-value="storagePercent" 
+                :color="storageUsed >= storageLimit ? 'error' : 'secondary'" 
+                height="8" 
+                rounded
+             ></v-progress-linear>
+             
+             <div class="text-caption text-grey mt-1">
+               {{ (storageLimit - Number(storageUsed)).toFixed(2) }} GB remaining
+             </div>
+          </div>
+
+          <v-divider class="my-4"></v-divider>
+
+          <!-- Manage Subscription (Show Upgrade or Manage based on tier) -->
+          <v-btn 
+            block 
+            :variant="isBasic ? 'flat' : 'outlined'"
+            :color="isBasic ? 'primary' : 'grey'"
+            class="mb-3"
+            :to="'/app/profile'"
+          >
+            {{ isBasic ? 'Upgrade Tier' : 'Manage Subscription' }}
           </v-btn>
-          <v-btn block color="secondary" variant="outlined" to="/app/profile">
-            <v-icon start icon="mdi-rocket-launch" />
-            Upgrade tier
-          </v-btn>
-          <v-alert type="info" variant="tonal" border="start">
-            Tip: Try SMOTE + RandomForest for multiclass imbalance & compare F1 uplift.
-          </v-alert>
-          <v-alert type="success" variant="tonal" border="start">
-            Tutorials unlocked: Balancing strategies chapter. <RouterLink to="/app/profile">View</RouterLink>
-          </v-alert>
-        </v-card-text>
-      </v-card>
-    </v-col>
-  </v-row>
+          
+        </v-card>
+
+        <!-- Quick Tips -->
+        <h3 class="text-h6 font-weight-bold mb-4 text-high-emphasis">Quick Tips</h3>
+        <v-alert
+           icon="mdi-lightbulb-on-outline"
+           title="Did you know?"
+           text="Using SMOTE combined with ENN (Edited Nearest Neighbors) often yields better results than SMOTE alone."
+           color="info"
+           variant="tonal"
+           class="rounded-lg"
+           border="start"
+        ></v-alert>
+
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
+import { useAuthStore } from '../stores/auth';
 import { useDatasetsStore } from '../stores/datasets';
 import { useWorkflowsStore } from '../stores/workflows';
-import { useAuthStore } from '../stores/auth';
 
+// 1. Initialize Stores
+const authStore = useAuthStore();
 const datasetsStore = useDatasetsStore();
 const workflowsStore = useWorkflowsStore();
-const authStore = useAuthStore();
 
-const stageLabels: Record<string, string> = {
-  ingest: 'Upload',
-  analyze: 'Analyze',
-  balance: 'Balance',
-  train: 'Train',
-  evaluate: 'Evaluate',
-  report: 'Report',
+
+const getStageColor = (status: string) => {
+  return status === 'Completed' ? 'success' : 'grey';
 };
 
-const name = computed(() => authStore.profile?.displayName ?? 'Explorer');
-const experimentsRun = computed(() => workflowsStore.workflows.length * 2 || 0);
-const recentWorkflows = computed(() =>
-  workflowsStore.workflows.slice(0, 5),
+// 2. Fetch Data on Load
+onMounted(async () => {
+  if (authStore.user) {
+    await Promise.all([
+      datasetsStore.fetchDatasets(),
+      workflowsStore.fetchWorkflows()
+    ]);
+  }
+});
+
+// --- COMPUTED PROPS ---
+
+const name = computed(() => authStore.profile?.displayName?.split(' ')[0] ?? 'Explorer');
+const currentTier = computed(() => authStore.profile?.tier || 'Basic');
+const isBasic = computed(() => currentTier.value === 'Basic');
+
+// 1. Workflow Logic
+const recentWorkflows = computed(() => workflowsStore.workflows.slice(0, 5));
+const workflowCount = computed(() => workflowsStore.workflows.length); 
+
+// Dynamic Limits based on Tier
+const workflowLimit = computed(() => isBasic.value ? 5 : 100); // 100 as "Unlimited" cap for bar
+const workflowLimitLabel = computed(() => isBasic.value ? '5' : 'Unlimited');
+
+const workflowPercent = computed(() => Math.min(100, (workflowCount.value / workflowLimit.value) * 100));
+
+// 2. Storage Logic
+const storageUsed = computed(() => 
+  (authStore.profile?.usageStats?.storageUsed ?? 0) // Keep as number for comparison
+);
+
+const storageUsedFormatted = computed(() => 
+  storageUsed.value.toFixed(2) // Format for display
+);
+
+const storageLimit = computed(() => isBasic.value ? 1 : 10);
+
+// FIX: Now comparing number vs number
+const storagePercent = computed(() => 
+  Math.min(100, (storageUsed.value / storageLimit.value) * 100)
 );
 
 const latestWorkflow = computed(() => workflowsStore.workflows[0]);
-const activeStageLabel = computed(
-  () => (latestWorkflow.value ? stageLabels[latestWorkflow.value.stage] : 'Not started'),
-);
 
-const progressPercent = computed(() =>
-  Math.min(100, (experimentsRun.value / 25) * 100),
-);
-
-const storageUsed = computed(() =>
-  Math.min(5, datasetsStore.datasets.length * 0.4).toFixed(1),
-);
-
-const storagePercent = computed(() =>
-  Math.min(100, (Number(storageUsed.value) / 5) * 100),
-);
-
-const datasetMix = computed(() => {
-  if (datasetsStore.datasets.length === 0) {
-    return [
-      { label: 'Binary', value: 0 },
-      { label: 'Multiclass', value: 0 },
-      { label: 'Multilabel', value: 0 },
-    ];
-  }
-  const buckets: Record<string, number> = {
-    binary: 0,
-    multiclass: 0,
-    multilabel: 0,
-  };
-  datasetsStore.datasets.forEach((dataset) => {
-    const key = dataset.targetColumn?.includes(',') ? 'multilabel' : 'binary';
-    buckets[key] = (buckets[key] ?? 0) + 1;
-  });
-  return [
-    { label: 'Binary', value: buckets.binary ?? 0 },
-    { label: 'Multiclass', value: buckets.multiclass ?? 0 },
-    { label: 'Multilabel', value: buckets.multilabel ?? 0 },
-  ];
+const activeStageLabel = computed(() => {
+    if (!latestWorkflow.value) return 'Idle';
+    return latestWorkflow.value.status === 'Draft' ? 'In Progress' : 'Finished';
 });
+
 </script>
 
 <style scoped>
-.dashboard-gap {
-  row-gap: 24px;
-}
-
-.gradient-card {
-  background: linear-gradient(135deg, rgba(94, 53, 177, 0.15), rgba(0, 191, 165, 0.15));
+.hover-item:hover {
+  background-color: rgba(var(--v-theme-primary), 0.05);
+  transition: background-color 0.2s ease;
 }
 </style>
-

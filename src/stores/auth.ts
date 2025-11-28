@@ -1,8 +1,12 @@
+const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 Minutes
+
 import { defineStore } from 'pinia';
 import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
   updateProfile,
 } from 'firebase/auth';
@@ -12,20 +16,44 @@ import {
   getDoc,
   serverTimestamp,
   setDoc,
-  updateDoc,
+  updateDoc, // <--- Import updateDoc
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
-type Tier = 'basic' | 'advanced';
+// --- Types ---
+export type Tier = 'Basic' | 'Advanced';
 
-interface UserProfile {
+export interface UserUsageStats {
+  experimentsRun: number;
+  storageUsed: number;
+}
+
+export interface UserBillingRecord {
+  date: any; 
+  amount: number;
+}
+
+export interface UserProfile {
   uid: string;
   email: string;
   displayName: string | null;
+  photoURL?: string | null;
   tier: Tier;
-  createdAt?: Date;
-  workflows?: number;
-  datasets?: number;
+  createdAt?: any;
+  usageStats: UserUsageStats;
+  billingHistory: UserBillingRecord[];
+}
+
+function mapAuthError(code: string): string {
+  switch (code) {
+    case 'auth/invalid-email': return 'Please enter a valid email address.';
+    case 'auth/user-disabled': return 'This account has been disabled.';
+    case 'auth/user-not-found': return 'No account found with this email.';
+    case 'auth/wrong-password': return 'Incorrect password.';
+    case 'auth/email-already-in-use': return 'Email is already registered.';
+    case 'auth/popup-closed-by-user': return 'Sign-in popup was closed.';
+    default: return 'An unexpected error occurred.';
+  }
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -33,102 +61,179 @@ export const useAuthStore = defineStore('auth', {
     user: null as User | null,
     profile: null as UserProfile | null,
     isReady: false,
-    error: '' as string | null,
+    isLoading: false,
+    error: null as string | null,
   }),
+
   actions: {
     init() {
-      onAuthStateChanged(auth, async (user) => {
-        this.user = user;
-        if (user) {
-          await this.fetchProfile(user.uid);
+      onAuthStateChanged(auth, async (currentUser) => {
+        
+        // 1. CHECK TIME: If user exists, check if session is stale
+        if (currentUser) {
+          const lastActive = localStorage.getItem('lastActiveTime');
+          const now = Date.now();
+
+          if (lastActive && (now - parseInt(lastActive) > INACTIVITY_LIMIT)) {
+            // Time exceeded! Force logout immediately
+            console.log('Session expired while away.');
+            await this.logout();
+            this.isReady = true;
+            return; // Stop here
+          }
+        }
+
+        // 2. Normal Login Logic (only runs if time checks passed)
+        this.user = currentUser;
+        if (currentUser) {
+          await this.fetchProfile(currentUser.uid);
+          // Refresh the timestamp since they just loaded the app
+          localStorage.setItem('lastActiveTime', Date.now().toString());
         } else {
           this.profile = null;
+          // Clear timestamp on logout
+          localStorage.removeItem('lastActiveTime');
         }
+        
         this.isReady = true;
       });
     },
-    waitForAuth(): Promise<void> {
-      if (this.isReady) {
-        return Promise.resolve();
-      }
+
+    async waitForAuth(): Promise<void> {
+      if (this.isReady) return Promise.resolve();
       return new Promise((resolve) => {
-        const stop = onAuthStateChanged(auth, async (user) => {
-          this.user = user;
-          if (user) {
-            await this.fetchProfile(user.uid);
-          } else {
-            this.profile = null;
+        // Fixed: Removed unused 'mutation' param
+        const unwatch = this.$subscribe((_mutation, state) => {
+          if (state.isReady) {
+            unwatch();
+            resolve();
           }
-          this.isReady = true;
-          stop();
-          resolve();
         });
       });
     },
-    async register(email: string, password: string, displayName: string) {
+    
+    // --- Login / Register Actions (Same as before) ---
+    async loginWithGoogle() {
+      this.isLoading = true;
       this.error = null;
-      const credential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      if (displayName) {
-        await updateProfile(credential.user, { displayName });
+      try {
+        const provider = new GoogleAuthProvider();
+        const credential = await signInWithPopup(auth, provider);
+        const user = credential.user;
+        const docRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+          const newProfile: UserProfile = {
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.displayName || 'New User',
+            photoURL: user.photoURL || null,
+            tier: 'Basic',
+            createdAt: serverTimestamp(),
+            usageStats: { experimentsRun: 0, storageUsed: 0 },
+            billingHistory: []
+          };
+          await setDoc(docRef, newProfile);
+        }
+      } catch (err: any) {
+        this.error = mapAuthError(err.code);
+        throw err;
+      } finally {
+        this.isLoading = false;
       }
-      await setDoc(doc(db, 'users', credential.user.uid), {
-        email,
-        displayName,
-        tier: 'basic',
-        createdAt: serverTimestamp(),
-        workflows: 0,
-        datasets: 0,
-      });
-      await this.fetchProfile(credential.user.uid);
     },
-    async login(email: string, password: string) {
+
+    async register(email: string, password: string, displayName: string) {
+      this.isLoading = true;
       this.error = null;
-      await signInWithEmailAndPassword(auth, email, password);
+      try {
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(credential.user, { displayName });
+        const newProfile: UserProfile = {
+          uid: credential.user.uid,
+          email,
+          displayName,
+          tier: 'Basic',
+          createdAt: serverTimestamp(),
+          usageStats: { experimentsRun: 0, storageUsed: 0 },
+          billingHistory: []
+        };
+        await setDoc(doc(db, 'users', credential.user.uid), newProfile);
+      } catch (err: any) {
+        this.error = mapAuthError(err.code);
+        throw err;
+      } finally {
+        this.isLoading = false;
+      }
     },
+
+    async login(email: string, password: string) {
+      this.isLoading = true;
+      this.error = null;
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (err: any) {
+        this.error = mapAuthError(err.code);
+        throw err;
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
     async logout() {
       await signOut(auth);
+      this.user = null;
+      this.profile = null;
+      localStorage.removeItem('lastActiveTime'); // <--- Add this
     },
+
     async fetchProfile(uid: string) {
-      const docSnap = await getDoc(doc(db, 'users', uid));
-      if (docSnap.exists()) {
-        const data = docSnap.data() as Omit<UserProfile, 'uid'>;
-        this.profile = { uid, ...data };
-      } else if (this.user) {
-        // create minimal profile if missing
-        await setDoc(
-          doc(db, 'users', uid),
-          {
-            email: this.user.email,
-            displayName: this.user.displayName,
-            tier: 'basic',
-            createdAt: serverTimestamp(),
-          },
-          { merge: true },
-        );
-        this.profile = {
-          uid,
-          email: this.user.email ?? '',
-          displayName: this.user.displayName,
-          tier: 'basic',
-        };
+      try {
+        const docSnap = await getDoc(doc(db, 'users', uid));
+        if (docSnap.exists()) {
+          this.profile = docSnap.data() as UserProfile;
+        }
+      } catch (e) {
+        console.error("Error fetching profile:", e);
       }
     },
+
+    // --- NEW ACTION: Update Profile Details ---
     async updateProfileDetails(payload: { displayName?: string; tier?: Tier }) {
       if (!this.user) return;
-      const { displayName, tier } = payload;
-      if (displayName && this.user.displayName !== displayName) {
-        await updateProfile(this.user, { displayName });
+      
+      this.isLoading = true;
+      try {
+        const updates: any = {};
+
+        // 1. Update Auth Object (Display Name only)
+        if (payload.displayName && payload.displayName !== this.user.displayName) {
+           await updateProfile(this.user, { displayName: payload.displayName });
+           updates.displayName = payload.displayName;
+        }
+
+        // 2. Prepare Firestore Updates
+        if (payload.displayName) updates.displayName = payload.displayName;
+        if (payload.tier) updates.tier = payload.tier;
+
+        // 3. Write to Firestore
+        if (Object.keys(updates).length > 0) {
+            await updateDoc(doc(db, 'users', this.user.uid), updates);
+        }
+
+        // 4. Update Local State Immediately (Reactivity)
+        if (this.profile) {
+           this.profile = { ...this.profile, ...updates };
+        }
+        
+      } catch (err: any) {
+         console.error(err);
+         this.error = "Failed to update profile.";
+         throw err;
+      } finally {
+         this.isLoading = false;
       }
-      await updateDoc(doc(db, 'users', this.user.uid), {
-        ...(displayName ? { displayName } : {}),
-        ...(tier ? { tier } : {}),
-      });
-      await this.fetchProfile(this.user.uid);
-    },
+    }
   },
 });
-

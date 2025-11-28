@@ -3,6 +3,11 @@ import { useAuthStore } from '../stores/auth';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  // Fixed unused vars: removed to, from
+  scrollBehavior(_to, _from, savedPosition) {
+    if (savedPosition) return savedPosition;
+    return { top: 0 };
+  },
   routes: [
     {
       path: '/',
@@ -27,8 +32,9 @@ const router = createRouter({
       meta: { requiresAuth: true },
       children: [
         {
-          path: '',
+          path: 'dashboard',
           name: 'dashboard',
+          alias: '', 
           component: () => import('../views/DashboardView.vue'),
         },
         {
@@ -39,6 +45,7 @@ const router = createRouter({
         {
           path: 'workflows',
           name: 'workflows',
+          // Make sure this file actually exists!
           component: () => import('../views/workflows/WorkflowsView.vue'),
         },
         {
@@ -48,21 +55,36 @@ const router = createRouter({
         },
       ],
     },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/',
+    },
   ],
 });
 
-router.beforeEach(async (to, _, next) => {
+// Fixed unused vars: removed from
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
+
   if (!authStore.isReady) {
-    await authStore.waitForAuth();
+    try {
+      await authStore.waitForAuth();
+    } catch (error) {
+      console.error('Auth initialization failed:', error);
+    }
   }
 
-  if (to.meta.requiresAuth && !authStore.user) {
-    next({ name: 'login' });
+  const isAuthenticated = !!authStore.user;
+
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    next({ 
+      name: 'login', 
+      query: { redirect: to.fullPath } 
+    });
     return;
   }
 
-  if (to.meta.guestOnly && authStore.user) {
+  if (to.meta.guestOnly && isAuthenticated) {
     next({ name: 'dashboard' });
     return;
   }
@@ -71,4 +93,3 @@ router.beforeEach(async (to, _, next) => {
 });
 
 export default router;
-
