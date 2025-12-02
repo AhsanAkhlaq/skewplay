@@ -24,51 +24,73 @@ body {
 .v-application {
   font-family: var(--font-primary) !important;
   /* FIX: Ensure Vuetify app wrapper also inherits correct color */
-  color: rgb(var(--v-theme-on-background)) !important; 
+  color: rgb(var(--v-theme-on-background)) !important;
 }
 
-.text-h1, .text-h2, .text-h3, .text-h4, .text-h5, .text-h6 {
+.text-h1,
+.text-h2,
+.text-h3,
+.text-h4,
+.text-h5,
+.text-h6 {
   font-family: var(--font-display) !important;
   letter-spacing: -0.02em !important;
 }
 
 /* --- UTILITIES --- */
 
-/* Dark Gradient Background (Used in AppShell) */
+/* Dynamic Background */
 .skew-bg {
-  background-color: #0F172A;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(34, 211, 238, 0.15) 0px, transparent 50%);
+  background-color: rgb(var(--v-theme-background));
+  background-image:
+    radial-gradient(at 0% 0%, rgba(var(--v-theme-primary), 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(var(--v-theme-secondary), 0.15) 0px, transparent 50%);
   background-attachment: fixed;
   min-height: 100vh;
+  transition: background-color 0.3s ease;
 }
 
 /* Glassmorphism Card Effect */
 .glass-card {
-  background: rgba(30, 41, 59, 0.6) !important; /* Semi-transparent Slate */
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  /* FIX: Force text inside glass cards to be white in dark mode */
-  color: white; 
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
-/* Light Mode overrides for Glass Card */
+/* Dark Theme Glass */
+.v-theme--skewPlayDarkTheme .glass-card {
+  background: rgba(30, 41, 59, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgb(var(--v-theme-on-surface));
+}
+
+/* Light Theme Glass */
 .v-theme--skewPlayTheme .glass-card {
-  background: rgba(255, 255, 255, 0.8) !important;
-  border: 1px solid rgba(0, 0, 0, 0.05) !important;
-  color: rgba(0, 0, 0, 0.87);
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  color: rgb(var(--v-theme-on-surface));
 }
 
-/* Autofill Fix for Dark Inputs */
-.autofill-dark input:-webkit-autofill,
-.autofill-dark input:-webkit-autofill:hover,
-.autofill-dark input:-webkit-autofill:focus,
-.autofill-dark input:-webkit-autofill:active {
-    transition: background-color 9999s ease-in-out 0s;
-    -webkit-text-fill-color: white !important;
-    caret-color: white !important;
-    box-shadow: 0 0 0 30px rgba(30, 41, 59, 0.5) inset !important; 
+/* Autofill Fix */
+/* Dark Mode Autofill */
+.v-theme--skewPlayDarkTheme .autofill-dark input:-webkit-autofill,
+.v-theme--skewPlayDarkTheme .autofill-dark input:-webkit-autofill:hover,
+.v-theme--skewPlayDarkTheme .autofill-dark input:-webkit-autofill:focus,
+.v-theme--skewPlayDarkTheme .autofill-dark input:-webkit-autofill:active {
+  transition: background-color 9999s ease-in-out 0s;
+  -webkit-text-fill-color: white !important;
+  caret-color: white !important;
+  box-shadow: 0 0 0 30px rgba(30, 41, 59, 0.5) inset !important;
+}
+
+/* Light Mode Autofill */
+.v-theme--skewPlayTheme .autofill-dark input:-webkit-autofill,
+.v-theme--skewPlayTheme .autofill-dark input:-webkit-autofill:hover,
+.v-theme--skewPlayTheme .autofill-dark input:-webkit-autofill:focus,
+.v-theme--skewPlayTheme .autofill-dark input:-webkit-autofill:active {
+  transition: background-color 9999s ease-in-out 0s;
+  -webkit-text-fill-color: rgb(var(--v-theme-on-surface)) !important;
+  caret-color: rgb(var(--v-theme-on-surface)) !important;
+  box-shadow: 0 0 0 30px rgba(255, 255, 255, 0.5) inset !important;
 }

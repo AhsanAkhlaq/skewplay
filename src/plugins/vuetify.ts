@@ -6,17 +6,22 @@ import { aliases, mdi } from 'vuetify/iconsets/mdi';
 const skewPlayTheme = {
   dark: false,
   colors: {
-    background: '#F8FAFC', // Cool Grey
-    surface: '#FFFFFF',    // Pure White
-    // FIX: Use the DEEP purple here so it stands out against white
-    primary: '#5E35B1',    
-    'primary-darken-1': '#3700B3',
-    secondary: '#00BFA5',  // Teal
-    accent: '#7C4DFF',
-    error: '#DC2626',
-    info: '#0288D1',
+    background: '#F8FAFC', // Slate 50
+    surface: '#FFFFFF',    // White
+    primary: '#4F46E5',    // Indigo 600
+    'primary-darken-1': '#4338ca',
+    secondary: '#0EA5E9',  // Sky 500
+    accent: '#8B5CF6',     // Violet 500
+    error: '#EF4444',
+    info: '#3B82F6',
     success: '#10B981',
     warning: '#F59E0B',
+
+    // TEXT COLORS
+    'on-background': '#0F172A', // Slate 900
+    'on-surface': '#1E293B',    // Slate 800
+    'on-primary': '#FFFFFF',    // White
+    'on-secondary': '#FFFFFF',  // White
   },
   variables: {
     'border-color': '#E2E8F0',
@@ -28,16 +33,21 @@ const skewPlayTheme = {
 const skewPlayDarkTheme = {
   dark: true,
   colors: {
-    background: '#0F172A', // Dark Navy
+    background: '#0F172A', // Slate 900
     surface: '#1E293B',    // Slate 800
-    // FIX: Use the LIGHTER purple here so it pops against the dark background
-    primary: '#5E35B1',    // Deep Purple (Brand Color) 
-    secondary: '#22D3EE',  // Cyan (Glowing effect)
-    accent: '#A78BFA',
-    error: '#EF4444',
-    info: '#3B82F6',
+    primary: '#6366F1',    // Indigo 500
+    secondary: '#38BDF8',  // Sky 400
+    accent: '#A78BFA',     // Violet 400
+    error: '#F87171',
+    info: '#60A5FA',
     success: '#34D399',
     warning: '#FBBF24',
+
+    // TEXT COLORS
+    'on-background': '#F8FAFC', // Slate 50
+    'on-surface': '#E2E8F0',    // Slate 200
+    'on-primary': '#FFFFFF',    // White
+    'on-secondary': '#0F172A',  // Slate 900
   },
   variables: {
     'border-color': '#334155',
@@ -47,7 +57,7 @@ const skewPlayDarkTheme = {
 
 export default createVuetify({
   theme: {
-    defaultTheme: 'skewPlayDarkTheme',
+    defaultTheme: 'skewPlayTheme',
     themes: {
       skewPlayTheme,
       skewPlayDarkTheme,

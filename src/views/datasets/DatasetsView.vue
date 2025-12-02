@@ -90,29 +90,73 @@
             cols="12" 
             md="6"
           >
-            <v-card class="glass-card h-100 d-flex flex-column" hover border>
+            <v-card 
+                class="glass-card h-100 d-flex flex-column cursor-pointer" 
+                hover 
+                :class="{ 'border-amber': dataset.isSample }"
+                :style="dataset.isSample ? 'border-color: #FFC107 !important' : ''"
+                border
+                @click="openPreview(dataset)"
+            >
               
               <div class="pa-4 d-flex justify-space-between align-start">
                  <div class="d-flex align-center">
-                    <v-avatar color="secondary" variant="tonal" rounded class="me-3">
-                       <v-icon icon="mdi-file-delimited"></v-icon>
+                    <!-- Icon: Gold for Samples, Teal for User -->
+                    <v-avatar 
+                        :color="dataset.isSample ? 'amber-darken-2' : 'secondary'" 
+                        variant="tonal" 
+                        rounded 
+                        class="me-3"
+                    >
+                       <v-icon :icon="dataset.isSample ? 'mdi-star-circle' : 'mdi-file-delimited'"></v-icon>
                     </v-avatar>
                     <div>
-                       <div class="text-subtitle-1 font-weight-bold text-truncate text-high-emphasis" style="max-width: 180px;">
-                         {{ dataset.fileName }}
+                       <div class="d-flex align-center">
+                           <div class="text-subtitle-1 font-weight-bold text-truncate text-high-emphasis" style="max-width: 180px;">
+                             {{ dataset.fileName }}
+                           </div>
+                           
+                           <!-- Badge: Official Sample vs Public -->
+                           <v-chip 
+                                v-if="dataset.isSample" 
+                                size="x-small" 
+                                color="amber-darken-2" 
+                                class="ml-2 font-weight-bold" 
+                                label
+                                variant="flat"
+                           >
+                              SAMPLE
+                           </v-chip>
+                           <v-chip 
+                                v-else-if="dataset.isPublic" 
+                                size="x-small" 
+                                color="success" 
+                                class="ml-2 font-weight-bold" 
+                                label
+                           >
+                              PUBLIC
+                           </v-chip>
                        </div>
                        <div class="text-caption text-medium-emphasis">
-                         {{ new Date(dataset.createdAt?.seconds * 1000).toLocaleDateString() }}
+                         {{ formatSize(dataset.sizeBytes) }} • {{ dataset.isSample ? 'Provided by SkewPlay' : new Date(dataset.createdAt?.seconds * 1000).toLocaleDateString() }}
                        </div>
                     </div>
                  </div>
                  
+                 <!-- Actions Menu -->
                  <v-menu>
                     <template v-slot:activator="{ props }">
-                       <v-btn icon="mdi-dots-vertical" variant="text" size="small" v-bind="props"></v-btn>
+                       <v-btn icon="mdi-dots-vertical" variant="text" size="small" v-bind="props" @click.stop></v-btn>
                     </template>
                     <v-list density="compact">
                        <v-list-item 
+                          prepend-icon="mdi-state-machine" 
+                          title="Use in Workflow" 
+                          to="/app/workflows"
+                       ></v-list-item>
+                       <v-divider v-if="!dataset.isSample && !dataset.isPublic"></v-divider>
+                       <v-list-item 
+                          v-if="!dataset.isSample && !dataset.isPublic"
                           prepend-icon="mdi-delete" 
                           title="Delete" 
                           color="error"
@@ -149,7 +193,7 @@
 
                  <div class="d-flex flex-wrap ga-2">
                     <v-chip size="x-small" variant="outlined" class="text-medium-emphasis">
-                       Target: {{ Object.keys(dataset.imbalanceRatios)[0] }}
+                       Target: {{ dataset.targetCol || 'Unknown' }}
                     </v-chip>
                     <v-chip v-if="dataset.anomalies?.length" size="x-small" variant="outlined" color="warning">
                        {{ dataset.anomalies.length }} Issues Found
@@ -157,15 +201,6 @@
                  </div>
 
               </div>
-
-              <v-divider class="border-opacity-25"></v-divider>
-              <div class="pa-2">
-                 <v-btn block variant="text" color="primary" to="/app/workflows">
-                    Use in Workflow
-                    <v-icon end icon="mdi-arrow-right"></v-icon>
-                 </v-btn>
-              </div>
-
             </v-card>
           </v-col>
         </v-row>
@@ -177,12 +212,66 @@
       <v-icon start icon="mdi-check"></v-icon> Dataset uploaded successfully!
     </v-snackbar>
 
+    <!-- PREVIEW DIALOG -->
+    <v-dialog v-model="previewDialog" max-width="800" persistent>
+      <v-card class="rounded-xl">
+        <v-card-title class="d-flex justify-space-between align-center pa-4 border-b">
+          <span class="text-h6 font-weight-bold">Data Preview</span>
+          <v-btn icon="mdi-close" variant="text" size="small" @click="cancelPreview"></v-btn>
+        </v-card-title>
+
+        <v-card-text class="pa-4">
+          <div class="mb-4">
+            <div class="text-subtitle-1 font-weight-bold">{{ previewFile?.name || previewDataset?.fileName }}</div>
+            <div class="text-caption text-medium-emphasis">
+              {{ formatSize(previewFile?.size || previewDataset?.sizeBytes) }} • {{ previewRows.length }} rows previewed
+            </div>
+          </div>
+
+          <v-table density="compact" class="border rounded-lg">
+            <thead>
+              <tr>
+                <th v-for="header in previewHeaders" :key="header" class="text-left font-weight-bold">
+                  {{ header }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, i) in previewRows" :key="i">
+                <td v-for="(cell, j) in row" :key="j" class="text-caption">
+                  {{ cell }}
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+
+        <v-divider></v-divider>
+
+        <v-card-actions class="pa-4">
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="cancelPreview">Close</v-btn>
+          <v-btn 
+            v-if="previewFile"
+            color="primary" 
+            variant="flat" 
+            prepend-icon="mdi-cloud-upload"
+            @click="confirmUpload"
+            :loading="datasetsStore.isLoading"
+          >
+            Confirm Upload
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
   </v-container>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useDatasetsStore } from '../../stores/datasets';
+import { useDatasetsStore, type Dataset } from '../../stores/datasets';
+import axios from 'axios';
 
 const datasetsStore = useDatasetsStore();
 
@@ -193,8 +282,24 @@ const isDragging = ref(false);
 const isLoadingInit = ref(true);
 const showSuccess = ref(false);
 
+// Preview State
+const previewDialog = ref(false);
+const previewFile = ref<File | null>(null);
+const previewDataset = ref<Dataset | null>(null);
+const previewHeaders = ref<string[]>([]);
+const previewRows = ref<string[][]>([]);
+
 const colors = ['#00BFA5', '#5E35B1', '#FFC107', '#E53935'];
 const getBarColor = (index: number) => colors[index % colors.length];
+
+// --- Helper Functions ---
+const formatSize = (bytes?: number) => {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
 
 // --- Upload Logic ---
 
@@ -206,7 +311,7 @@ const handleFileSelect = async (value: File | File[]) => {
   if (!value) return;
   const filesArray = Array.isArray(value) ? value : [value];
   if (filesArray.length > 0 && filesArray[0]) {
-    await processUpload(filesArray[0]);
+    parseCSV(filesArray[0]);
   }
 };
 
@@ -216,18 +321,84 @@ const handleDrop = async (e: DragEvent) => {
   if (droppedFiles && droppedFiles.length > 0) {
     const file = droppedFiles[0];
     if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
-      await processUpload(file);
+      parseCSV(file);
     } else {
       datasetsStore.error = "Only CSV files are allowed.";
     }
   }
 };
 
-const processUpload = async (file: File) => {
+const parseCSV = (file: File) => {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target?.result as string;
+    if (!text) return;
+
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+    if (lines.length > 0) {
+      // Simple CSV parser (handles basic commas)
+      previewHeaders.value = lines[0].split(',').map(h => h.trim());
+      previewRows.value = lines.slice(1, 6).map(line => line.split(',').map(c => c.trim())); // Preview first 5 rows
+      
+      previewFile.value = file;
+      previewDataset.value = null;
+      previewDialog.value = true;
+    }
+  };
+  reader.readAsText(file);
+};
+
+// --- Preview Existing Dataset ---
+const openPreview = async (dataset: Dataset) => {
+    // For now, we'll just show the metadata or fetch a snippet if possible.
+    // Since we don't have a "fetch snippet" endpoint for existing files easily without downloading the whole thing,
+    // we will just show a placeholder or try to fetch the first few bytes if it's a URL.
+    // For samples (localhost), we can fetch. For firestore (gs://), we can't easily without auth/storage SDK here.
+    
+    previewDataset.value = dataset;
+    previewFile.value = null;
+    
+    if (dataset.storagePath.startsWith('http')) {
+        try {
+            // Fetch first 1KB to preview
+            const response = await axios.get(dataset.storagePath, { 
+                headers: { Range: 'bytes=0-1024' } 
+            });
+            const text = response.data;
+            const lines = text.split('\n').map((line: string) => line.trim()).filter((line: string) => line);
+            if (lines.length > 0) {
+                previewHeaders.value = lines[0].split(',').map((h: string) => h.trim());
+                previewRows.value = lines.slice(1, 6).map((line: string) => line.split(',').map((c: string) => c.trim()));
+            }
+        } catch (e) {
+            console.error("Failed to preview", e);
+            previewHeaders.value = ['Error'];
+            previewRows.value = [['Could not load preview']];
+        }
+    } else {
+        previewHeaders.value = ['Info'];
+        previewRows.value = [['Preview not available for cloud files yet']];
+    }
+    
+    previewDialog.value = true;
+};
+
+const cancelPreview = () => {
+  previewDialog.value = false;
+  previewFile.value = null;
+  previewDataset.value = null;
+  previewHeaders.value = [];
+  previewRows.value = [];
+  files.value = []; // Reset file input
+};
+
+const confirmUpload = async () => {
+  if (!previewFile.value) return;
+  
   try {
-    await datasetsStore.uploadDataset(file);
+    await datasetsStore.uploadDataset(previewFile.value);
     showSuccess.value = true;
-    files.value = [];
+    cancelPreview();
   } catch (e) {
     // Error handled in store
   }
@@ -262,5 +433,13 @@ onMounted(async () => {
   border-color: rgb(var(--v-theme-primary));
   background: rgba(var(--v-theme-primary), 0.1);
   transform: scale(1.02);
+}
+
+.border-amber {
+    border-color: #FFC107 !important;
+}
+
+.cursor-pointer {
+    cursor: pointer;
 }
 </style>

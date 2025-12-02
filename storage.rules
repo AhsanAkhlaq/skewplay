@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check auth
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // User's private folder: users/{userId}/...
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+
+    // Public examples folder: examples/...
+    match /examples/{allPaths=**} {
+      allow read: if isAuth(); // Or 'true' if you want them truly public
+      allow write: if false;   // Only admin can upload examples (via Console)
+    }
+  }
+}

@@ -45,10 +45,6 @@
             ></v-text-field>
 
             <div class="text-subtitle-2 font-weight-bold mb-2 text-primary">Subscription Tier</div>
-            <v-alert type="info" variant="tonal" density="compact" class="mb-4 text-caption" border="start">
-               <strong>Dev Note:</strong> Toggle this to preview "Advanced" features in the Dashboard. 
-               (Stripe integration coming in next milestone).
-            </v-alert>
 
             <v-radio-group v-model="tier" color="primary" class="mb-6">
               <v-row>
@@ -210,10 +206,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
 import { useAuthStore, type Tier } from '../../stores/auth';
+import { useDatasetsStore } from '../../stores/datasets';
+import { useWorkflowsStore } from '../../stores/workflows';
 
 const authStore = useAuthStore();
+const datasetsStore = useDatasetsStore();
+const workflowsStore = useWorkflowsStore();
 
 // Form State
 const isValid = ref(false);
@@ -225,6 +225,16 @@ const showConfirmDialog = ref(false);
 const displayName = ref(authStore.profile?.displayName ?? '');
 const tier = ref<Tier>(authStore.profile?.tier ?? 'Basic');
 
+// Fetch Data
+onMounted(async () => {
+  if (authStore.user) {
+    await Promise.all([
+      datasetsStore.fetchDatasets(),
+      workflowsStore.fetchWorkflows()
+    ]);
+  }
+});
+
 // Computed Helpers
 const initials = computed(() => {
   const name = displayName.value || authStore.profile?.email || 'U';
@@ -232,8 +242,12 @@ const initials = computed(() => {
 });
 
 // Usage Calculations
-const storageUsed = computed(() => (authStore.profile?.usageStats?.storageUsed ?? 0).toFixed(2));
-const experimentsRun = computed(() => authStore.profile?.usageStats?.experimentsRun ?? 0); 
+const storageUsed = computed(() => {
+  const bytes = datasetsStore.totalUserUsageBytes || 0;
+  return (bytes / (1024 * 1024 * 1024)).toFixed(4);
+});
+
+const experimentsRun = computed(() => workflowsStore.workflows.length); 
 
 const storageLimit = computed(() => tier.value === 'Basic' ? 1 : 10);
 const workflowLimit = computed(() => tier.value === 'Basic' ? 5 : 100);

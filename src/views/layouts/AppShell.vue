@@ -3,25 +3,34 @@
     
     <v-navigation-drawer 
       v-model="drawer" 
+      :rail="rail"
       :permanent="mdAndUp" 
       :temporary="!mdAndUp"
       class="bg-glass-nav border-none"
       elevation="0"
-      width="280"
+      :width="280"
+      @mouseenter="handleMouseEnter"
+      @mouseleave="handleMouseLeave"
     >
-      <div class="pa-6 pb-2 d-flex align-center">
-        <v-avatar color="primary" size="42" rounded="lg" variant="flat" class="me-3 elevation-4">
-          <v-icon icon="mdi-play-box-multiple-outline" color="white" size="26" style="transform: rotate(-10deg);"></v-icon>
-        </v-avatar>
-        <div>
-          <div class="text-h6 font-weight-bold text-white" style="line-height: 1.1; letter-spacing: -0.5px;">SkewPlay</div>
-          <div class="text-caption text-secondary font-weight-bold">No-code ML Lab</div>
+      <div class="pa-4 d-flex align-center justify-space-between">
+        <!-- Logo Area with Hover Interaction -->
+        <div 
+            class="d-flex align-center cursor-pointer" 
+            @click="rail = false"
+        >
+            <v-avatar color="primary" size="40" rounded="lg" variant="flat" class="me-3 elevation-4">
+                <v-icon icon="mdi-play-box-multiple-outline" color="white" size="24" style="transform: rotate(-10deg);"></v-icon>
+            </v-avatar>
+            <div v-if="!rail">
+                <div class="text-h6 font-weight-bold text-white" style="line-height: 1.1; letter-spacing: -0.5px;">SkewPlay</div>
+                <div class="text-caption text-secondary font-weight-bold">No-code ML Lab</div>
+            </div>
         </div>
       </div>
 
-      <v-divider class="mb-4 mx-6 opacity-20" color="white"></v-divider>
+      <v-divider class="mb-4 mx-4 opacity-20" color="white"></v-divider>
 
-      <v-list density="comfortable" nav class="px-4">
+      <v-list density="comfortable" nav class="px-2">
         <v-list-item
           v-for="item in links"
           :key="item.to"
@@ -32,58 +41,21 @@
           link
         >
           <template v-slot:prepend>
-            <v-icon :icon="item.icon" size="22"></v-icon>
+            <v-icon :icon="item.icon" size="24"></v-icon>
           </template>
           <v-list-item-title class="font-weight-medium">{{ item.label }}</v-list-item-title>
         </v-list-item>
       </v-list>
 
       <template v-slot:append>
-        <div class="pa-4">
-          <v-card color="rgba(255,255,255,0.05)" variant="flat" class="pa-4 rounded-lg border-thin mb-4">
-             <div class="text-caption font-weight-bold mb-3 text-white text-uppercase opacity-70">Quick Start</div>
-             
-             <v-btn 
-                block 
-                color="primary" 
-                to="/app/datasets" 
-                class="mb-2 text-capitalize font-weight-bold"
-                prepend-icon="mdi-cloud-upload"
-                size="small"
-                elevation="2"
-             >
-               Upload Dataset
-             </v-btn>
-
-             <v-btn 
-                block 
-                variant="outlined" 
-                color="white"
-                to="/app/workflows" 
-                class="text-capitalize"
-                prepend-icon="mdi-flask-plus"
-                size="small"
-             >
-               New Workflow
-             </v-btn>
-          </v-card>
-          
-          <v-btn 
-            block 
-            variant="text" 
-            color="grey-lighten-1" 
-            prepend-icon="mdi-logout"
-            class="text-capitalize"
-            @click="handleLogout"
-          >
-            Sign Out
-          </v-btn>
+        <div class="pa-2 text-center">
+            <!-- Sidebar items removed as per request -->
         </div>
       </template>
     </v-navigation-drawer>
 
     <v-app-bar color="transparent" elevation="0" height="72" class="px-2 backdrop-blur">
-      <v-app-bar-nav-icon class="d-md-none" :color="isDark ? 'white' : 'black'" @click="drawer = !drawer"></v-app-bar-nav-icon>
+      <v-app-bar-nav-icon v-if="!mdAndUp" :color="isDark ? 'white' : 'black'" @click="drawer = !drawer"></v-app-bar-nav-icon>
       
       <v-text-field
         v-model="searchQuery"
@@ -175,7 +147,23 @@ const router = useRouter();
 const { mdAndUp } = useDisplay();
 
 const drawer = ref(true);
+const rail = ref(false);
 const searchQuery = ref('');
+
+const handleMouseEnter = () => {
+    // Only auto-expand if we are in rail mode (shrunk)
+    if (rail.value) {
+        rail.value = false;
+    }
+};
+
+const handleMouseLeave = () => {
+    // Only auto-shrink if we are expanded AND on desktop
+    // AND the user didn't explicitly toggle it open (optional logic, but for now simple hover)
+    if (!rail.value && mdAndUp.value) {
+        rail.value = true;
+    }
+};
 
 const links = [
   { label: 'Dashboard', to: '/app/dashboard', icon: 'mdi-view-dashboard-outline' },
@@ -197,7 +185,9 @@ const tierLabel = computed(() => {
 });
 
 const toggleTheme = () => {
-  theme.global.name.value = isDark.value ? 'skewPlayTheme' : 'skewPlayDarkTheme';
+  const newTheme = isDark.value ? 'skewPlayTheme' : 'skewPlayDarkTheme';
+  theme.global.name.value = newTheme;
+  localStorage.setItem('user-theme', newTheme);
 };
 
 const INACTIVITY_LIMIT = 30 * 60 * 1000; 

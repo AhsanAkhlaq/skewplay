@@ -191,7 +191,7 @@
              ></v-progress-linear>
              
              <div class="text-caption text-grey mt-1">
-               {{ (storageLimit - Number(storageUsed)).toFixed(2) }} GB remaining
+               {{ (storageLimit - Number(storageUsed)).toFixed(4) }} GB remaining
              </div>
           </div>
 
@@ -270,12 +270,14 @@ const workflowLimitLabel = computed(() => isBasic.value ? '5' : 'Unlimited');
 const workflowPercent = computed(() => Math.min(100, (workflowCount.value / workflowLimit.value) * 100));
 
 // 2. Storage Logic
-const storageUsed = computed(() => 
-  (authStore.profile?.usageStats?.storageUsed ?? 0) // Keep as number for comparison
-);
+const storageUsed = computed(() => {
+  // Convert bytes to GB
+  const bytes = datasetsStore.totalUserUsageBytes || 0;
+  return bytes / (1024 * 1024 * 1024);
+});
 
 const storageUsedFormatted = computed(() => 
-  storageUsed.value.toFixed(2) // Format for display
+  storageUsed.value.toFixed(4) // Show more precision for small files
 );
 
 const storageLimit = computed(() => isBasic.value ? 1 : 10);

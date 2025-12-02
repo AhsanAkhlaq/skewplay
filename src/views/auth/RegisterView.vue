@@ -10,8 +10,8 @@
               <v-icon icon="mdi-account-plus" size="28" color="secondary"></v-icon>
             </v-avatar>
           </div>
-          <h1 class="text-h4 font-weight-bold text-white">Create Account</h1>
-          <p class="text-body-2 text-grey-lighten-1 mt-2">
+          <h1 class="text-h4 font-weight-bold text-on-surface">Create Account</h1>
+          <p class="text-body-2 text-medium-emphasis mt-2">
             Join the lab to start balancing your datasets.
           </p>
         </div>
@@ -24,9 +24,7 @@
             placeholder="e.g. Jane Doe"
             prepend-inner-icon="mdi-badge-account-horizontal-outline"
             variant="outlined"
-            base-color="white"
-            color="secondary"
-            bg-color="rgba(255,255,255,0.05)"
+            color="primary"
             :rules="[rules.required, rules.minName]"
             class="mb-2 autofill-dark" 
           ></v-text-field>
@@ -37,9 +35,7 @@
             type="email"
             prepend-inner-icon="mdi-email-outline"
             variant="outlined"
-            base-color="white"
-            color="secondary"
-            bg-color="rgba(255,255,255,0.05)"
+            color="primary"
             :rules="[rules.required, rules.email]"
             class="mb-2 autofill-dark"
           ></v-text-field>
@@ -52,9 +48,7 @@
             :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
             @click:append-inner="showPassword = !showPassword"
             variant="outlined"
-            base-color="white"
-            color="secondary"
-            bg-color="rgba(255,255,255,0.05)"
+            color="primary"
             :rules="[rules.required, rules.minPass]"
             hint="At least 6 characters"
             class="mb-4 autofill-dark"
@@ -69,7 +63,7 @@
             :rules="[rules.required]"
           >
             <template v-slot:label>
-              <span class="text-caption text-grey-lighten-1">
+              <span class="text-caption text-medium-emphasis">
                 I agree to the 
                 <a href="#" class="text-secondary text-decoration-none font-weight-bold">Terms</a> 
                 and 
@@ -85,7 +79,7 @@
             type="submit" 
             :loading="authStore.isLoading"
             :disabled="!isValid || !agreedToTerms"
-            class="mb-4 text-white font-weight-bold"
+            class="mb-4 text-on-primary font-weight-bold"
             elevation="4"
             append-icon="mdi-arrow-right"
           >
@@ -94,16 +88,16 @@
         </v-form>
 
         <div class="d-flex align-center mb-4">
-          <v-divider color="white" class="opacity-50"></v-divider>
-          <span class="text-caption text-grey-lighten-1 mx-3">OR</span>
-          <v-divider color="white" class="opacity-50"></v-divider>
+          <v-divider class="opacity-50"></v-divider>
+          <span class="text-caption text-medium-emphasis mx-3">OR</span>
+          <v-divider class="opacity-50"></v-divider>
         </div>
 
         <v-btn 
           block 
           size="large" 
           variant="outlined" 
-          color="white" 
+          color="on-surface" 
           prepend-icon="mdi-google"
           :loading="authStore.isLoading"
           @click="handleGoogleRegister"
@@ -125,7 +119,7 @@
           </v-alert>
         </v-expand-transition>
 
-        <div class="text-center text-body-2 text-grey-lighten-1">
+        <div class="text-center text-body-2 text-medium-emphasis">
           Already have an account? 
           <router-link to="/login" class="text-secondary font-weight-bold text-decoration-none ml-1">
             Log In

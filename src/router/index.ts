@@ -3,8 +3,7 @@ import { useAuthStore } from '../stores/auth';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  // Fixed unused vars: removed to, from
-  scrollBehavior(_to, _from, savedPosition) {
+  scrollBehavior(to, from, savedPosition) {
     if (savedPosition) return savedPosition;
     return { top: 0 };
   },
@@ -34,7 +33,7 @@ const router = createRouter({
         {
           path: 'dashboard',
           name: 'dashboard',
-          alias: '', 
+          alias: '',
           component: () => import('../views/DashboardView.vue'),
         },
         {
@@ -45,7 +44,6 @@ const router = createRouter({
         {
           path: 'workflows',
           name: 'workflows',
-          // Make sure this file actually exists!
           component: () => import('../views/workflows/WorkflowsView.vue'),
         },
         {
@@ -62,9 +60,15 @@ const router = createRouter({
   ],
 });
 
-// Fixed unused vars: removed from
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
+
+  // LOG: Show which URL is being navigated to
+  console.log('🔗 Navigation attempt:', {
+    to: to.fullPath,
+    from: from.fullPath || '(initial)',
+    name: to.name,
+  });
 
   if (!authStore.isReady) {
     try {
@@ -76,20 +80,42 @@ router.beforeEach(async (to, _from, next) => {
 
   const isAuthenticated = !!authStore.user;
 
+  // Existing auth checks
   if (to.meta.requiresAuth && !isAuthenticated) {
-    next({ 
-      name: 'login', 
-      query: { redirect: to.fullPath } 
+    console.log('Redirecting to login - auth required');
+    next({
+      name: 'login',
+      query: { redirect: to.fullPath }
     });
     return;
   }
 
   if (to.meta.guestOnly && isAuthenticated) {
+    // FEATURE: Session Persistence - Restore last route if valid
+    const lastRoute = authStore.getLastValidRoute();
+    if (lastRoute && lastRoute !== to.fullPath) {
+      console.log('Restoring last visited route:', lastRoute);
+      next(lastRoute);
+      return;
+    }
+    console.log('Redirecting to dashboard');
     next({ name: 'dashboard' });
     return;
   }
 
+  console.log('Navigation allowed to:', to.fullPath);
   next();
+});
+
+// FEATURE: Save current route after each navigation (for session persistence)
+router.afterEach((to) => {
+  const authStore = useAuthStore();
+
+  // Only save app routes (not login/register)
+  if (authStore.user && to.path.startsWith('/app/')) {
+    localStorage.setItem('lastVisitedRoute', to.fullPath);
+    localStorage.setItem('lastRouteTime', Date.now().toString());
+  }
 });
 
 export default router;

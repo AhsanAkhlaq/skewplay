@@ -29,7 +29,7 @@ export interface UserUsageStats {
 }
 
 export interface UserBillingRecord {
-  date: any; 
+  date: any;
   amount: number;
 }
 
@@ -68,7 +68,7 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     init() {
       onAuthStateChanged(auth, async (currentUser) => {
-        
+
         // 1. CHECK TIME: If user exists, check if session is stale
         if (currentUser) {
           const lastActive = localStorage.getItem('lastActiveTime');
@@ -94,7 +94,7 @@ export const useAuthStore = defineStore('auth', {
           // Clear timestamp on logout
           localStorage.removeItem('lastActiveTime');
         }
-        
+
         this.isReady = true;
       });
     },
@@ -111,7 +111,7 @@ export const useAuthStore = defineStore('auth', {
         });
       });
     },
-    
+
     // --- Login / Register Actions (Same as before) ---
     async loginWithGoogle() {
       this.isLoading = true;
@@ -185,7 +185,31 @@ export const useAuthStore = defineStore('auth', {
       await signOut(auth);
       this.user = null;
       this.profile = null;
-      localStorage.removeItem('lastActiveTime'); // <--- Add this
+      localStorage.removeItem('lastActiveTime');
+      // FEATURE: Clear session persistence data on logout
+      localStorage.removeItem('lastVisitedRoute');
+      localStorage.removeItem('lastRouteTime');
+    },
+
+    // FEATURE: Session Persistence - Get last valid route if within 30 min
+    getLastValidRoute(): string | null {
+      const lastRoute = localStorage.getItem('lastVisitedRoute');
+      const lastTime = localStorage.getItem('lastRouteTime');
+      const THIRTY_MINUTES = 30 * 60 * 1000;
+
+      if (!lastRoute || !lastTime) return null;
+
+      const timeSinceLastVisit = Date.now() - parseInt(lastTime);
+
+      // Only restore if within 30 minutes
+      if (timeSinceLastVisit < THIRTY_MINUTES) {
+        return lastRoute;
+      }
+
+      // Session expired, clear storage
+      localStorage.removeItem('lastVisitedRoute');
+      localStorage.removeItem('lastRouteTime');
+      return null;
     },
 
     async fetchProfile(uid: string) {
@@ -202,15 +226,15 @@ export const useAuthStore = defineStore('auth', {
     // --- NEW ACTION: Update Profile Details ---
     async updateProfileDetails(payload: { displayName?: string; tier?: Tier }) {
       if (!this.user) return;
-      
+
       this.isLoading = true;
       try {
         const updates: any = {};
 
         // 1. Update Auth Object (Display Name only)
         if (payload.displayName && payload.displayName !== this.user.displayName) {
-           await updateProfile(this.user, { displayName: payload.displayName });
-           updates.displayName = payload.displayName;
+          await updateProfile(this.user, { displayName: payload.displayName });
+          updates.displayName = payload.displayName;
         }
 
         // 2. Prepare Firestore Updates
@@ -219,20 +243,20 @@ export const useAuthStore = defineStore('auth', {
 
         // 3. Write to Firestore
         if (Object.keys(updates).length > 0) {
-            await updateDoc(doc(db, 'users', this.user.uid), updates);
+          await updateDoc(doc(db, 'users', this.user.uid), updates);
         }
 
         // 4. Update Local State Immediately (Reactivity)
         if (this.profile) {
-           this.profile = { ...this.profile, ...updates };
+          this.profile = { ...this.profile, ...updates };
         }
-        
+
       } catch (err: any) {
-         console.error(err);
-         this.error = "Failed to update profile.";
-         throw err;
+        console.error(err);
+        this.error = "Failed to update profile.";
+        throw err;
       } finally {
-         this.isLoading = false;
+        this.isLoading = false;
       }
     }
   },

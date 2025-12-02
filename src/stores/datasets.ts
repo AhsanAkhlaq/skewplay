@@ -1,172 +1,188 @@
 import { defineStore } from 'pinia';
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  getDocs, 
-  serverTimestamp, 
-  deleteDoc, 
+import { ref, computed } from 'vue';
+import {
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
   doc,
-  increment,
-  updateDoc,
-  // getDoc removed (unused)
+  serverTimestamp
 } from 'firebase/firestore';
-import { 
-  ref as storageRef, 
-  uploadBytes, 
-  getDownloadURL, 
-  deleteObject 
-} from 'firebase/storage';
-import { db, storage } from '../lib/firebase';
+import { db, auth } from '../lib/firebase'; // Ensure auth is exported from firebase config
 import { useAuthStore } from './auth';
+import axios from 'axios';
 
 export interface Dataset {
-  id: string; // Made required to fix "possibly undefined" errors
+  id: string;
   userId: string;
   fileName: string;
-  name: string; // Added alias for compatibility with views
   storagePath: string;
-  type: 'binary' | 'multiclass' | 'multilabel';
+  type: 'binary' | 'multiclass' | 'regression';
   imbalanceRatios: Record<string, number>;
-  anomalies: string[];
-  summaryViz: string;
+  anomalies?: string[];
+  summaryViz?: string;
   createdAt: any;
+  isPublic?: boolean;
+  isSample?: boolean; // New field for official samples
+  sizeBytes?: number;
+  targetCol?: string;
 }
 
-export const useDatasetsStore = defineStore('datasets', {
-  state: () => ({
-    datasets: [] as Dataset[],
-    isLoading: false,
-    error: null as string | null,
-  }),
+export const useDatasetsStore = defineStore('datasets', () => {
+  const datasets = ref<Dataset[]>([]);
+  const isLoading = ref(false);
+  const error = ref<string | null>(null);
+  const authStore = useAuthStore();
 
-  actions: {
-    async fetchDatasets() {
-      const auth = useAuthStore();
-      if (!auth.user) return;
+  const PYTHON_API_URL = 'http://localhost:8000';
 
-      this.isLoading = true;
-      try {
-        const q = query(collection(db, 'datasets'), where('userId', '==', auth.user.uid));
+  // Fetch datasets from both Firestore (User) and Python API (Samples)
+  const fetchDatasets = async () => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const user = auth.currentUser;
+
+      // 1. Fetch User Datasets from Firestore
+      let userDatasets: Dataset[] = [];
+      if (user) {
+        const q = query(
+          collection(db, 'datasets'),
+          where('userId', '==', user.uid)
+        );
         const querySnapshot = await getDocs(q);
-        this.datasets = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            return { 
-                id: doc.id, 
-                ...data,
-                name: data.fileName // Map fileName to name for UI compatibility
-            } as Dataset;
-        });
-      } catch (err: any) {
-        console.error('Fetch Error:', err);
-        this.error = 'Failed to load datasets';
-      } finally {
-        this.isLoading = false;
-      }
-    },
-
-    async uploadDataset(file: File) {
-      const auth = useAuthStore();
-      if (!auth.user) {
-         this.error = "You must be logged in.";
-         throw new Error(this.error);
+        userDatasets = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Dataset));
       }
 
-      // Safe Quota Check
-      const currentUsage = auth.profile?.usageStats?.storageUsed || 0;
-      const fileSizeGB = file.size / (1024 * 1024 * 1024);
-      const limit = auth.profile?.tier === 'Basic' ? 1 : 10;
-
-      if (currentUsage + fileSizeGB > limit) {
-        this.error = `Storage limit exceeded (${limit}GB). Upgrade to upload more.`;
-        throw new Error(this.error);
-      }
-
-      this.isLoading = true;
-      this.error = null;
-
+      // 2. Fetch Sample Datasets from Python API
+      let sampleDatasets: Dataset[] = [];
       try {
-        const filePath = `users/${auth.user.uid}/${Date.now()}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
-        
-        const snapshot = await uploadBytes(fileRef, file);
-        const downloadURL = await getDownloadURL(snapshot.ref);
-
-        const mockAnalysis = this.runMockAnalysis(file.name);
-
-        const newDatasetData = {
-          userId: auth.user.uid,
-          fileName: file.name,
-          storagePath: downloadURL,
-          type: mockAnalysis.type,
-          imbalanceRatios: mockAnalysis.imbalanceRatios,
-          anomalies: mockAnalysis.anomalies,
-          summaryViz: 'https://via.placeholder.com/400x200.png?text=Distribution+Chart',
-          createdAt: serverTimestamp(),
-        };
-
-        const docRef = await addDoc(collection(db, 'datasets'), newDatasetData);
-
-        // Update Quota
-        try {
-            await updateDoc(doc(db, 'users', auth.user.uid), {
-                'usageStats.storageUsed': increment(fileSizeGB)
-            });
-            if (auth.profile && auth.profile.usageStats) {
-                auth.profile.usageStats.storageUsed += fileSizeGB;
-            }
-        } catch (e) { console.warn('Quota update failed', e); }
-        
-        this.datasets.push({ 
-            id: docRef.id, 
-            ...newDatasetData, 
-            name: file.name 
-        } as unknown as Dataset); // Double cast clears the overlap error
-
-      } catch (err: any) {
-        this.error = err.message || 'Upload failed';
-        throw err;
-      } finally {
-        this.isLoading = false;
+        const response = await axios.get(`${PYTHON_API_URL}/samples`);
+        sampleDatasets = response.data;
+      } catch (err) {
+        console.warn("Failed to fetch samples from Python backend:", err);
+        // Don't block the UI if backend is down, just show user datasets
       }
-    },
 
-    runMockAnalysis(fileName: string) {
-      const isMulti = fileName.toLowerCase().includes('multi');
-      return {
-        type: (isMulti ? 'multiclass' : 'binary') as Dataset['type'],
-        imbalanceRatios: (isMulti 
-          ? { 'Class A': 0.1, 'Class B': 0.2, 'Class C': 0.7 } 
-          : { 'Minority': 0.05, 'Majority': 0.95 }) as Record<string, number>, // <--- FORCE CAST HERE
-        anomalies: ['Row 42: Null value'],
-      };
-    },
+      // 3. Merge: Samples first, then User datasets (sorted by date desc)
+      userDatasets.sort((a, b) => {
+        const timeA = a.createdAt?.seconds || 0;
+        const timeB = b.createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
 
-    async deleteDataset(id: string, storageUrl: string) {
-      try {
-        await deleteDoc(doc(db, 'datasets', id));
-        try {
-           const fileRef = storageRef(storage, storageUrl);
-           await deleteObject(fileRef);
-        } catch (e) { console.warn('Storage file missing'); }
+      datasets.value = [...sampleDatasets, ...userDatasets];
 
-        this.datasets = this.datasets.filter(d => d.id !== id);
-      } catch (err: any) {
-        this.error = 'Failed to delete dataset';
-      }
-    },
-
-    // Placeholder for update (used by UI)
-    async updateDataset(id: string, payload: any) {
-        // MVP stub
-        console.log('Update dataset not implemented in MVP', id, payload);
-    },
-    
-    // Placeholder for create (used by UI manual form)
-    async createDataset(payload: any) {
-        // MVP stub - manual creation not supported, only upload
-        console.log('Manual create not implemented', payload);
+    } catch (e: any) {
+      console.error("Error fetching datasets:", e);
+      error.value = e.message;
+    } finally {
+      isLoading.value = false;
     }
-  }
+  };
+
+  // Upload to Python Backend -> Save Metadata to Firestore
+  const uploadDataset = async (file: File) => {
+    isLoading.value = true;
+    error.value = null;
+
+    if (!authStore.user) {
+      error.value = "You must be logged in to upload.";
+      isLoading.value = false;
+      return;
+    }
+
+    try {
+      // 1. Upload to Python Backend
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await axios.post(`${PYTHON_API_URL}/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      const analysisData = response.data; // fileName, storagePath, rowCount, type, imbalanceRatios...
+
+      // 2. Save Metadata to Firestore
+      const newDataset = {
+        userId: authStore.user.uid,
+        fileName: analysisData.fileName, // Use name from backend (timestamped) or original? Backend returns original name in 'fileName' key usually, but let's use what we sent or what backend returned.
+        storagePath: analysisData.storagePath,
+        type: analysisData.type,
+        imbalanceRatios: analysisData.imbalanceRatios,
+        anomalies: analysisData.anomalies || [],
+        sizeBytes: analysisData.sizeBytes || file.size,
+        targetCol: analysisData.targetCol || 'Unknown',
+        createdAt: serverTimestamp(),
+        isPublic: false,
+        isSample: false
+      };
+
+      const docRef = await addDoc(collection(db, 'datasets'), newDataset);
+
+      // 3. Update Local State
+      // We need to fetch again or manually push. Manually pushing is faster but requires formatting the timestamp.
+      // For simplicity and correctness with serverTimestamp, let's just fetch again or mock the timestamp.
+      const localDataset: Dataset = {
+        id: docRef.id,
+        ...newDataset,
+        createdAt: { seconds: Date.now() / 1000 } // Mock for immediate display
+      } as Dataset;
+
+      datasets.value = [localDataset, ...datasets.value];
+
+    } catch (e: any) {
+      console.error("Upload error:", e);
+      error.value = "Failed to upload dataset. Ensure backend is running.";
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const deleteDataset = async (id: string, storagePath: string) => {
+    try {
+      // Check if it's a sample
+      const dataset = datasets.value.find(d => d.id === id);
+      if (dataset?.isSample) {
+        error.value = "Cannot delete official sample datasets.";
+        return;
+      }
+
+      // 1. Delete from Firestore
+      await deleteDoc(doc(db, 'datasets', id));
+
+      // 2. Remove from local state
+      datasets.value = datasets.value.filter(d => d.id !== id);
+
+      // Note: We are NOT deleting the actual file from Python backend in this simple version
+      // In a real app, we'd send a DELETE request to the backend too.
+
+    } catch (e: any) {
+      console.error("Delete error:", e);
+      error.value = e.message;
+    }
+  };
+
+  const totalUserUsageBytes = computed(() => {
+    return datasets.value
+      .filter(d => !d.isSample && !d.isPublic)
+      .reduce((acc, curr) => acc + (curr.sizeBytes || 0), 0);
+  });
+
+  return {
+    datasets,
+    isLoading,
+    error,
+    fetchDatasets,
+    uploadDataset,
+    deleteDataset,
+    totalUserUsageBytes
+  };
 });
