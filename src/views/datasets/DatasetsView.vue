@@ -18,7 +18,7 @@
 
     <v-row>
       <v-col cols="12" lg="4">
-        <v-card class="glass-card pa-6" elevation="0" style="position: sticky; top: 90px;">
+        <v-card class="glass-card pa-6" elevation="0" :style="lgAndUp ? 'position: sticky; top: 90px;' : ''">
           <div class="text-h6 font-weight-bold mb-4 text-high-emphasis">Upload New Data</div>
           
           <div 
@@ -272,7 +272,9 @@
 import { ref, onMounted } from 'vue';
 import { useDatasetsStore, type Dataset } from '../../stores/datasets';
 import axios from 'axios';
+import { useDisplay } from 'vuetify';
 
+const { lgAndUp } = useDisplay();
 const datasetsStore = useDatasetsStore();
 
 // State
@@ -337,7 +339,7 @@ const parseCSV = (file: File) => {
     const lines = text.split('\n').map(line => line.trim()).filter(line => line);
     if (lines.length > 0) {
       // Simple CSV parser (handles basic commas)
-      previewHeaders.value = lines[0].split(',').map(h => h.trim());
+      previewHeaders.value = (lines[0] || '').split(',').map(h => h.trim());
       previewRows.value = lines.slice(1, 6).map(line => line.split(',').map(c => c.trim())); // Preview first 5 rows
       
       previewFile.value = file;
@@ -367,7 +369,7 @@ const openPreview = async (dataset: Dataset) => {
             const text = response.data;
             const lines = text.split('\n').map((line: string) => line.trim()).filter((line: string) => line);
             if (lines.length > 0) {
-                previewHeaders.value = lines[0].split(',').map((h: string) => h.trim());
+                previewHeaders.value = (lines[0] || '').split(',').map((h: string) => h.trim());
                 previewRows.value = lines.slice(1, 6).map((line: string) => line.split(',').map((c: string) => c.trim()));
             }
         } catch (e) {

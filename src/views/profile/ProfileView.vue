@@ -48,10 +48,10 @@
 
             <v-radio-group v-model="tier" color="primary" class="mb-6">
               <v-row>
-                <v-col cols="12" sm="6">
+                <v-col cols="12" sm="6" d-flex>
                    <v-card 
                       variant="outlined" 
-                      class="pa-4 cursor-pointer" 
+                      class="pa-4 cursor-pointer h-100" 
                       :class="{'border-primary bg-primary-opacity': tier === 'Basic'}"
                       @click="tier = 'Basic'"
                    >
@@ -65,10 +65,10 @@
                    </v-card>
                 </v-col>
 
-                <v-col cols="12" sm="6">
+                <v-col cols="12" sm="6" d-flex>
                    <v-card 
                       variant="outlined" 
-                      class="pa-4 cursor-pointer"
+                      class="pa-4 cursor-pointer h-100"
                       :class="{'border-primary bg-primary-opacity': tier === 'Advanced'}"
                       @click="tier = 'Advanced'"
                    >

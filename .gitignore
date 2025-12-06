@@ -25,3 +25,5 @@ dist-ssr
 # Ignore samples folder
 samples/
 uploads/
+samples.zip
+uploads.zip

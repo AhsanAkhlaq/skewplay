@@ -16,7 +16,7 @@ import {
   getDoc,
   serverTimestamp,
   setDoc,
-  updateDoc, // <--- Import updateDoc
+  updateDoc,
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
@@ -68,7 +68,6 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     init() {
       onAuthStateChanged(auth, async (currentUser) => {
-
         // 1. CHECK TIME: If user exists, check if session is stale
         if (currentUser) {
           const lastActive = localStorage.getItem('lastActiveTime');
@@ -102,7 +101,6 @@ export const useAuthStore = defineStore('auth', {
     async waitForAuth(): Promise<void> {
       if (this.isReady) return Promise.resolve();
       return new Promise((resolve) => {
-        // Fixed: Removed unused 'mutation' param
         const unwatch = this.$subscribe((_mutation, state) => {
           if (state.isReady) {
             unwatch();
@@ -112,7 +110,7 @@ export const useAuthStore = defineStore('auth', {
       });
     },
 
-    // --- Login / Register Actions (Same as before) ---
+    // --- Login / Register Actions ---
     async loginWithGoogle() {
       this.isLoading = true;
       this.error = null;
@@ -135,7 +133,11 @@ export const useAuthStore = defineStore('auth', {
             billingHistory: []
           };
           await setDoc(docRef, newProfile);
+          this.profile = newProfile;
+        } else {
+          this.profile = docSnap.data() as UserProfile;
         }
+        this.user = user; // FIX: Update state immediately
       } catch (err: any) {
         this.error = mapAuthError(err.code);
         throw err;
@@ -160,6 +162,8 @@ export const useAuthStore = defineStore('auth', {
           billingHistory: []
         };
         await setDoc(doc(db, 'users', credential.user.uid), newProfile);
+        this.user = credential.user; // FIX: Update state immediately
+        this.profile = newProfile;
       } catch (err: any) {
         this.error = mapAuthError(err.code);
         throw err;
@@ -172,7 +176,9 @@ export const useAuthStore = defineStore('auth', {
       this.isLoading = true;
       this.error = null;
       try {
-        await signInWithEmailAndPassword(auth, email, password);
+        const credential = await signInWithEmailAndPassword(auth, email, password);
+        this.user = credential.user; // FIX: Update state immediately
+        await this.fetchProfile(this.user.uid);
       } catch (err: any) {
         this.error = mapAuthError(err.code);
         throw err;
@@ -186,12 +192,10 @@ export const useAuthStore = defineStore('auth', {
       this.user = null;
       this.profile = null;
       localStorage.removeItem('lastActiveTime');
-      // FEATURE: Clear session persistence data on logout
       localStorage.removeItem('lastVisitedRoute');
       localStorage.removeItem('lastRouteTime');
     },
 
-    // FEATURE: Session Persistence - Get last valid route if within 30 min
     getLastValidRoute(): string | null {
       const lastRoute = localStorage.getItem('lastVisitedRoute');
       const lastTime = localStorage.getItem('lastRouteTime');
@@ -201,12 +205,10 @@ export const useAuthStore = defineStore('auth', {
 
       const timeSinceLastVisit = Date.now() - parseInt(lastTime);
 
-      // Only restore if within 30 minutes
       if (timeSinceLastVisit < THIRTY_MINUTES) {
         return lastRoute;
       }
 
-      // Session expired, clear storage
       localStorage.removeItem('lastVisitedRoute');
       localStorage.removeItem('lastRouteTime');
       return null;
@@ -223,7 +225,6 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    // --- NEW ACTION: Update Profile Details ---
     async updateProfileDetails(payload: { displayName?: string; tier?: Tier }) {
       if (!this.user) return;
 
@@ -231,22 +232,18 @@ export const useAuthStore = defineStore('auth', {
       try {
         const updates: any = {};
 
-        // 1. Update Auth Object (Display Name only)
         if (payload.displayName && payload.displayName !== this.user.displayName) {
           await updateProfile(this.user, { displayName: payload.displayName });
           updates.displayName = payload.displayName;
         }
 
-        // 2. Prepare Firestore Updates
         if (payload.displayName) updates.displayName = payload.displayName;
         if (payload.tier) updates.tier = payload.tier;
 
-        // 3. Write to Firestore
         if (Object.keys(updates).length > 0) {
           await updateDoc(doc(db, 'users', this.user.uid), updates);
         }
 
-        // 4. Update Local State Immediately (Reactivity)
         if (this.profile) {
           this.profile = { ...this.profile, ...updates };
         }

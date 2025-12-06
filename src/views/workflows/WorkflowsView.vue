@@ -2,7 +2,7 @@
   <v-container fluid class="pa-0">
     <v-row class="align-center mb-6">
       <v-col>
-        <h1 class="text-h4 font-weight-bold text-white">Workflows</h1>
+        <h1 class="text-h4 font-weight-bold text-high-emphasis">Workflows</h1>
         <p class="text-subtitle-1 text-medium-emphasis">Manage your experiments and pipelines.</p>
       </v-col>
       <v-col class="text-right">

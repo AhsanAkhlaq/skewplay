@@ -18,8 +18,8 @@
             class="d-flex align-center cursor-pointer" 
             @click="rail = false"
         >
-            <v-avatar color="primary" size="40" rounded="lg" variant="flat" class="me-3 elevation-4">
-                <v-icon icon="mdi-play-box-multiple-outline" color="white" size="24" style="transform: rotate(-10deg);"></v-icon>
+            <v-avatar color="transparent" size="30" rounded="lg" variant="flat" class="me-3">
+                <v-img src="/images/logo.ico" alt="Logo" width="30" height="30"></v-img>
             </v-avatar>
             <div v-if="!rail">
                 <div class="text-h6 font-weight-bold text-white" style="line-height: 1.1; letter-spacing: -0.5px;">SkewPlay</div>
@@ -58,6 +58,7 @@
       <v-app-bar-nav-icon v-if="!mdAndUp" :color="isDark ? 'white' : 'black'" @click="drawer = !drawer"></v-app-bar-nav-icon>
       
       <v-text-field
+        v-if="['dashboard', 'workflows'].includes(route.name as string)"
         v-model="searchQuery"
         prepend-inner-icon="mdi-magnify"
         placeholder="Search workflows..."
@@ -69,7 +70,8 @@
         :bg-color="isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)'"
         :color="isDark ? 'white' : 'primary'"
         class="app-search ms-2"
-        style="max-width: 350px;"
+        style="width: 100%; max-width: 1200px;
+        padding: 18px;"
       ></v-text-field>
 
       <v-spacer></v-spacer>
@@ -133,7 +135,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useDisplay, useTheme } from 'vuetify';
 import { useAuthStore } from '../../stores/auth';
 import { useDatasetsStore } from '../../stores/datasets';
@@ -144,6 +146,7 @@ const datasetsStore = useDatasetsStore();
 const workflowsStore = useWorkflowsStore();
 const theme = useTheme();
 const router = useRouter();
+const route = useRoute();
 const { mdAndUp } = useDisplay();
 
 const drawer = ref(true);

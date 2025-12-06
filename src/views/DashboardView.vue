@@ -50,7 +50,7 @@
                   variant="outlined"
                   color="white"
                   prepend-icon="mdi-school-outline"
-                  to="/app/profile"
+                  to="/app/tutorials"
                 >
                   View Tutorials
                 </v-btn>
@@ -58,10 +58,10 @@
             </v-col>
 
             <!-- Active Stage Widget (Desktop Only) -->
-            <v-col cols="12" md="4" class="d-none d-md-block text-right">
+            <v-col cols="12" md="4" class="text-md-right">
                <v-card class="d-inline-block text-start pa-4 rounded-lg glass-card" style="min-width: 240px; background: rgba(255,255,255,0.1);">
-                  <div class="text-caption text-white opacity-70 mb-1">Last Active Stage</div>
-                  <div class="text-h4 font-weight-bold text-white mb-1">
+                  <div class="text-caption text-black opacity-70 mb-1">Last Active Stage</div>
+                  <div class="text-h4 font-weight-bold text-black mb-1">
                     {{ activeStageLabel }}
                   </div>
                   <div class="d-flex align-center text-caption text-secondary font-weight-bold">

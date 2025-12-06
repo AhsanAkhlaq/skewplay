@@ -47,6 +47,11 @@ const router = createRouter({
           component: () => import('../views/workflows/WorkflowsView.vue'),
         },
         {
+          path: 'tutorials',
+          name: 'tutorials',
+          component: () => import('../views/tutorials/TutorialsView.vue'),
+        },
+        {
           path: 'profile',
           name: 'profile',
           component: () => import('../views/profile/ProfileView.vue'),
@@ -70,7 +75,9 @@ router.beforeEach(async (to, from, next) => {
     name: to.name,
   });
 
-  if (!authStore.isReady) {
+  // OPTIMIZATION: Only wait for auth if the route actually requires it.
+  // This allows the Landing page to load instantly without waiting for Firebase.
+  if ((to.meta.requiresAuth || to.meta.guestOnly) && !authStore.isReady) {
     try {
       await authStore.waitForAuth();
     } catch (error) {
