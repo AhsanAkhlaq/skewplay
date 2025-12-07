@@ -1,4 +1,5 @@
 <template>
+  <div class="Register-wrapper">
   <div class="skew-bg d-flex align-center justify-center" style="min-height: 100vh">
     <v-container class="d-flex justify-center">
       
@@ -128,6 +129,7 @@
 
       </v-card>
     </v-container>
+  </div>
   </div>
 </template>
 

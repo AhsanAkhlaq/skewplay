@@ -1,62 +1,29 @@
 <template>
   <v-layout class="shell-wrapper">
     
-    <v-navigation-drawer 
-      v-model="drawer" 
-      :rail="rail"
-      :permanent="mdAndUp" 
-      :temporary="!mdAndUp"
-      class="bg-glass-nav border-none"
-      elevation="0"
-      :width="280"
-      @mouseenter="handleMouseEnter"
-      @mouseleave="handleMouseLeave"
-    >
-      <div class="pa-4 d-flex align-center justify-space-between">
-        <!-- Logo Area with Hover Interaction -->
-        <div 
-            class="d-flex align-center cursor-pointer" 
-            @click="rail = false"
-        >
-            <v-avatar color="transparent" size="30" rounded="lg" variant="flat" class="me-3">
-                <v-img src="/images/logo.ico" alt="Logo" width="30" height="30"></v-img>
+    <!-- 1. HEADER (Gmail Style: Full width, sits above drawer or clipped) -->
+    <v-app-bar color="transparent" elevation="0" height="64" class="px-2 backdrop-blur " >
+      <!-- MAIN NAVIGATION TOGGLE & BRANDING -->
+      <div class="d-flex align-center" style="min-width: 250px;">
+        <!-- Toggle Button: Toggles Rail on Desktop, Drawer on Mobile -->
+        <v-app-bar-nav-icon 
+            :color="isDark ? 'white' : 'black'" 
+            @click="toggleDrawer"
+            class="me-2"
+        ></v-app-bar-nav-icon>
+
+        <!-- Logo & Title -->
+        <div class="d-flex align-center cursor-pointer" @click="router.push('/')">
+            <v-avatar color="transparent" size="36" rounded="lg" variant="flat" class="me-3">
+                <v-img src="/images/logo.ico" alt="Logo" width="36" height="36"></v-img>
             </v-avatar>
-            <div v-if="!rail">
-                <div class="text-h6 font-weight-bold text-white" style="line-height: 1.1; letter-spacing: -0.5px;">SkewPlay</div>
-                <div class="text-caption text-secondary font-weight-bold">No-code ML Lab</div>
+            <div>
+                <div class="text-h6 font-weight-bold" :class="isDark ? 'text-white' : 'text-black'" style="line-height: 1.1; letter-spacing: -0.5px;">SkewPlay</div>
             </div>
         </div>
       </div>
 
-      <v-divider class="mb-4 mx-4 opacity-20" color="white"></v-divider>
-
-      <v-list density="comfortable" nav class="px-2">
-        <v-list-item
-          v-for="item in links"
-          :key="item.to"
-          :to="item.to"
-          active-class="nav-active"
-          rounded="lg"
-          class="mb-1 text-grey-lighten-1"
-          link
-        >
-          <template v-slot:prepend>
-            <v-icon :icon="item.icon" size="24"></v-icon>
-          </template>
-          <v-list-item-title class="font-weight-medium">{{ item.label }}</v-list-item-title>
-        </v-list-item>
-      </v-list>
-
-      <template v-slot:append>
-        <div class="pa-2 text-center">
-            <!-- Sidebar items removed as per request -->
-        </div>
-      </template>
-    </v-navigation-drawer>
-
-    <v-app-bar color="transparent" elevation="0" height="72" class="px-2 backdrop-blur">
-      <v-app-bar-nav-icon v-if="!mdAndUp" :color="isDark ? 'white' : 'black'" @click="drawer = !drawer"></v-app-bar-nav-icon>
-      
+      <!-- SEARCH BAR (Center) -->
       <v-text-field
         v-if="['dashboard', 'workflows'].includes(route.name as string)"
         v-model="searchQuery"
@@ -69,13 +36,13 @@
         :base-color="isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'"
         :bg-color="isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)'"
         :color="isDark ? 'white' : 'primary'"
-        class="app-search ms-2"
-        style="width: 100%; max-width: 1200px;
-        padding: 18px;"
+        class="app-search ms-4"
+        style="width: 100%; max-width: 720px;"
       ></v-text-field>
 
       <v-spacer></v-spacer>
 
+      <!-- RIGHT ACTIONS -->
       <div class="d-flex align-center ga-2 me-2">
         <v-chip 
             class="font-weight-bold d-none d-sm-flex border-thin" 
@@ -113,7 +80,41 @@
         </v-menu>
       </div>
     </v-app-bar>
+    
+    <!-- 2. SIDEBAR -->
+    <v-navigation-drawer 
+      v-model="drawer" 
+      :rail="rail && mdAndUp"
+      :expand-on-hover="rail && mdAndUp"
+      :permanent="mdAndUp" 
+      :temporary="!mdAndUp"
+      class="bg-glass-nav border-none"
+      elevation="0"
+      :width="260"
+    >
+      <!-- Top spacing to clear app-bar if not clipped, or just padding -->
+      <div class="pt-2"></div>
 
+      <v-list density="comfortable" nav class="px-2">
+        <v-list-item
+          v-for="item in links"
+          :key="item.to"
+          :to="item.to"
+          active-class="nav-active"
+          rounded="lg"
+          class="mb-1 text-grey-lighten-1"
+          link
+        >
+          <template v-slot:prepend>
+            <v-icon :icon="item.icon" size="24"></v-icon>
+          </template>
+          <v-list-item-title class="font-weight-medium">{{ item.label }}</v-list-item-title>
+        </v-list-item>
+      </v-list>
+
+    </v-navigation-drawer>
+
+    <!-- 3. MAIN CONTENT -->
     <v-main>
       <div class="bg-gradient-fixed" :style="{ opacity: isDark ? 1 : 0 }"></div>
       
@@ -150,21 +151,16 @@ const route = useRoute();
 const { mdAndUp } = useDisplay();
 
 const drawer = ref(true);
-const rail = ref(false);
+const rail = ref(true); // Default to Rail (Mini) mode like Gmail
 const searchQuery = ref('');
 
-const handleMouseEnter = () => {
-    // Only auto-expand if we are in rail mode (shrunk)
-    if (rail.value) {
-        rail.value = false;
-    }
-};
-
-const handleMouseLeave = () => {
-    // Only auto-shrink if we are expanded AND on desktop
-    // AND the user didn't explicitly toggle it open (optional logic, but for now simple hover)
-    if (!rail.value && mdAndUp.value) {
-        rail.value = true;
+const toggleDrawer = () => {
+    if (mdAndUp.value) {
+        // Desktop: Toggle Rail mode
+        rail.value = !rail.value;
+    } else {
+        // Mobile: Toggle Drawer visibility
+        drawer.value = !drawer.value;
     }
 };
 

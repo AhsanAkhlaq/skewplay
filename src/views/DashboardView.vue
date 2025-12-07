@@ -1,4 +1,5 @@
 <template>
+  <div class="dashboard-page">
   <v-container fluid class="pa-0">
     <!-- 1. HERO SECTION -->
     <v-row class="mb-6">
@@ -225,6 +226,7 @@
       </v-col>
     </v-row>
   </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">

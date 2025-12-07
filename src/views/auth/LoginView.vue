@@ -1,4 +1,5 @@
 <template>
+  <div class="login-wrapper">
   <div class="skew-bg d-flex align-center justify-center" style="min-height: 100vh">
     <v-container class="d-flex justify-center">
       <v-card width="100%" max-width="420" class="glass-card pa-8" elevation="10">
@@ -100,6 +101,7 @@
             Session expired due to inactivity. Please log in again.
           </v-alert>
         </v-expand-transition>
+  </div>
 </template>
 
 <script setup lang="ts">

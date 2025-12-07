@@ -125,7 +125,7 @@
                                 label
                                 variant="flat"
                            >
-                              SAMPLE
+                               SAMPLE
                            </v-chip>
                            <v-chip 
                                 v-else-if="dataset.isPublic" 
@@ -134,7 +134,7 @@
                                 class="ml-2 font-weight-bold" 
                                 label
                            >
-                              PUBLIC
+                               PUBLIC
                            </v-chip>
                        </div>
                        <div class="text-caption text-medium-emphasis">
@@ -155,12 +155,25 @@
                           to="/app/workflows"
                        ></v-list-item>
                        <v-divider v-if="!dataset.isSample && !dataset.isPublic"></v-divider>
+                       <!-- NEW EDIT BUTTON -->
+                       <v-list-item 
+                          v-if="!dataset.isSample && !dataset.isPublic"
+                          prepend-icon="mdi-pencil" 
+                          title="Rename" 
+                          @click="openRenameDialog(dataset)"
+                       ></v-list-item>
+                       <v-list-item 
+                          v-if="!dataset.isSample && !dataset.isPublic"
+                          prepend-icon="mdi-target" 
+                          title="Change Target" 
+                          @click="openTargetDialog(dataset)"
+                       ></v-list-item>
                        <v-list-item 
                           v-if="!dataset.isSample && !dataset.isPublic"
                           prepend-icon="mdi-delete" 
                           title="Delete" 
                           color="error"
-                          @click="handleDelete(dataset.id, dataset.storagePath)"
+                          @click="handleDelete(dataset.id)"
                        ></v-list-item>
                     </v-list>
                  </v-menu>
@@ -193,10 +206,28 @@
 
                  <div class="d-flex flex-wrap ga-2">
                     <v-chip size="x-small" variant="outlined" class="text-medium-emphasis">
-                       Target: {{ dataset.targetCol || 'Unknown' }}
+                       Target: {{ dataset.targetColumn || 'Unknown' }}
                     </v-chip>
-                    <v-chip v-if="dataset.anomalies?.length" size="x-small" variant="outlined" color="warning">
-                       {{ dataset.anomalies.length }} Issues Found
+                    <!-- ANOMALIES LOGIC -->
+                    <v-chip 
+                        v-if="!dataset.anomalies?.length" 
+                        size="x-small" 
+                        variant="tonal" 
+                        color="success"
+                        prepend-icon="mdi-check-circle"
+                    >
+                       No Issues
+                    </v-chip>
+                    <v-chip 
+                        v-else 
+                        v-for="anomaly in dataset.anomalies"
+                        :key="anomaly"
+                        size="x-small" 
+                        variant="flat" 
+                        color="warning"
+                        class="font-weight-bold"
+                    >
+                       {{ anomaly }}
                     </v-chip>
                  </div>
 
@@ -209,23 +240,47 @@
     </v-row>
 
     <v-snackbar v-model="showSuccess" color="success" location="bottom end">
-      <v-icon start icon="mdi-check"></v-icon> Dataset uploaded successfully!
+      <v-icon start icon="mdi-check"></v-icon> Operation successful!
     </v-snackbar>
 
-    <!-- PREVIEW DIALOG -->
+    <!-- PREVIEW & UPLOAD DIALOG -->
     <v-dialog v-model="previewDialog" max-width="800" persistent>
       <v-card class="rounded-xl">
         <v-card-title class="d-flex justify-space-between align-center pa-4 border-b">
-          <span class="text-h6 font-weight-bold">Data Preview</span>
+          <span class="text-h6 font-weight-bold">Data Preview & Config</span>
           <v-btn icon="mdi-close" variant="text" size="small" @click="cancelPreview"></v-btn>
         </v-card-title>
 
         <v-card-text class="pa-4">
-          <div class="mb-4">
-            <div class="text-subtitle-1 font-weight-bold">{{ previewFile?.name || previewDataset?.fileName }}</div>
-            <div class="text-caption text-medium-emphasis">
-              {{ formatSize(previewFile?.size || previewDataset?.sizeBytes) }} • {{ previewRows.length }} rows previewed
-            </div>
+          <!-- UPLOAD CONFIG FIELDS -->
+          <div v-if="previewFile && !previewDataset" class="mb-4">
+              <v-text-field
+                v-model="uploadName"
+                label="Dataset Name"
+                variant="outlined"
+                density="compact"
+                hide-details="auto"
+                class="mb-3"
+              ></v-text-field>
+              
+              <v-select
+                v-model="uploadTargetCol"
+                :items="previewHeaders"
+                label="Target Column (Label)"
+                variant="outlined"
+                density="compact"
+                hint="Select the column you want to predict"
+                persistent-hint
+              ></v-select>
+          </div>
+
+          <div class="mb-4 d-flex justify-space-between align-center">
+             <div>
+                <div class="text-subtitle-1 font-weight-bold">{{ previewFile?.name || previewDataset?.fileName }}</div>
+                <div class="text-caption text-medium-emphasis">
+                {{ formatSize(previewFile?.size || previewDataset?.sizeBytes) }} • {{ previewRows.length }} rows previewed
+                </div>
+             </div>
           </div>
 
           <v-table density="compact" class="border rounded-lg">
@@ -258,11 +313,53 @@
             prepend-icon="mdi-cloud-upload"
             @click="confirmUpload"
             :loading="datasetsStore.isLoading"
+            :disabled="!uploadName || !uploadTargetCol"
           >
             Confirm Upload
           </v-btn>
         </v-card-actions>
       </v-card>
+    </v-dialog>
+
+    <!-- RENAME DIALOG -->
+    <v-dialog v-model="renameDialog" max-width="400">
+        <v-card class="rounded-xl">
+            <v-card-title class="pa-4">Rename Dataset</v-card-title>
+            <v-card-text class="px-4">
+                <v-text-field
+                    v-model="renameValue"
+                    label="New Name"
+                    variant="outlined"
+                    autofocus
+                    @keyup.enter="confirmRename"
+                ></v-text-field>
+            </v-card-text>
+            <v-card-actions class="pa-4">
+                <v-spacer></v-spacer>
+                <v-btn variant="text" @click="renameDialog = false">Cancel</v-btn>
+                <v-btn color="primary" variant="flat" @click="confirmRename" :disabled="!renameValue">Save</v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
+
+    <!-- CHANGE TARGET DIALOG -->
+    <v-dialog v-model="changeTargetDialog" max-width="400">
+        <v-card class="rounded-xl">
+            <v-card-title class="pa-4">Change Target Column</v-card-title>
+            <v-card-text class="px-4">
+                <v-select
+                    v-model="changeTargetValue"
+                    :items="previewHeaders"
+                    label="Select Target"
+                    variant="outlined"
+                ></v-select>
+            </v-card-text>
+            <v-card-actions class="pa-4">
+                <v-spacer></v-spacer>
+                <v-btn variant="text" @click="changeTargetDialog = false">Cancel</v-btn>
+                <v-btn color="primary" variant="flat" @click="confirmChangeTarget" :disabled="!changeTargetValue">Save</v-btn>
+            </v-card-actions>
+        </v-card>
     </v-dialog>
 
   </v-container>
@@ -284,12 +381,24 @@ const isDragging = ref(false);
 const isLoadingInit = ref(true);
 const showSuccess = ref(false);
 
-// Preview State
+// Preview & Upload Config State
 const previewDialog = ref(false);
 const previewFile = ref<File | null>(null);
 const previewDataset = ref<Dataset | null>(null);
 const previewHeaders = ref<string[]>([]);
 const previewRows = ref<string[][]>([]);
+
+const uploadName = ref('');
+const uploadTargetCol = ref<string | null>(null);
+
+// Rename State
+const renameDialog = ref(false);
+const renameValue = ref('');
+const datasetToRename = ref<Dataset | null>(null);
+
+// Change Target State
+const changeTargetDialog = ref(false);
+const changeTargetValue = ref<string | null>(null);
 
 const colors = ['#00BFA5', '#5E35B1', '#FFC107', '#E53935'];
 const getBarColor = (index: number) => colors[index % colors.length];
@@ -304,7 +413,6 @@ const formatSize = (bytes?: number) => {
 };
 
 // --- Upload Logic ---
-
 const triggerFileInput = () => {
   fileInput.value?.click();
 };
@@ -338,12 +446,19 @@ const parseCSV = (file: File) => {
 
     const lines = text.split('\n').map(line => line.trim()).filter(line => line);
     if (lines.length > 0) {
-      // Simple CSV parser (handles basic commas)
-      previewHeaders.value = (lines[0] || '').split(',').map(h => h.trim());
-      previewRows.value = lines.slice(1, 6).map(line => line.split(',').map(c => c.trim())); // Preview first 5 rows
+      // Simple CSV parser
+      const headers = (lines[0] || '').split(',').map(h => h.trim());
+      previewHeaders.value = headers;
+      previewRows.value = lines.slice(1, 6).map(line => line.split(',').map(c => c.trim()));
       
       previewFile.value = file;
       previewDataset.value = null;
+      
+      // Init Config Fields
+      uploadName.value = file.name;
+      // Heuristic: default target is last column
+      uploadTargetCol.value = headers[headers.length - 1] || null;
+
       previewDialog.value = true;
     }
   };
@@ -352,17 +467,11 @@ const parseCSV = (file: File) => {
 
 // --- Preview Existing Dataset ---
 const openPreview = async (dataset: Dataset) => {
-    // For now, we'll just show the metadata or fetch a snippet if possible.
-    // Since we don't have a "fetch snippet" endpoint for existing files easily without downloading the whole thing,
-    // we will just show a placeholder or try to fetch the first few bytes if it's a URL.
-    // For samples (localhost), we can fetch. For firestore (gs://), we can't easily without auth/storage SDK here.
-    
     previewDataset.value = dataset;
     previewFile.value = null;
     
     if (dataset.storagePath.startsWith('http')) {
         try {
-            // Fetch first 1KB to preview
             const response = await axios.get(dataset.storagePath, { 
                 headers: { Range: 'bytes=0-1024' } 
             });
@@ -391,14 +500,20 @@ const cancelPreview = () => {
   previewDataset.value = null;
   previewHeaders.value = [];
   previewRows.value = [];
-  files.value = []; // Reset file input
+  files.value = [];
+  uploadName.value = '';
+  uploadTargetCol.value = null;
 };
 
 const confirmUpload = async () => {
-  if (!previewFile.value) return;
+  if (!previewFile.value || !uploadTargetCol.value) return;
   
   try {
-    await datasetsStore.uploadDataset(previewFile.value);
+    await datasetsStore.uploadDataset(
+        previewFile.value, 
+        uploadName.value, 
+        uploadTargetCol.value
+    );
     showSuccess.value = true;
     cancelPreview();
   } catch (e) {
@@ -406,9 +521,59 @@ const confirmUpload = async () => {
   }
 };
 
-const handleDelete = async (id: string, path: string) => {
+// --- Rename Logic ---
+const openRenameDialog = (dataset: Dataset) => {
+    datasetToRename.value = dataset;
+    renameValue.value = dataset.fileName;
+    renameDialog.value = true;
+};
+
+const confirmRename = async () => {
+    if (!datasetToRename.value || !renameValue.value) return;
+    await datasetsStore.updateDataset(datasetToRename.value.id, { fileName: renameValue.value });
+    renameDialog.value = false;
+    showSuccess.value = true;
+};
+
+// --- Re-select Target Logic ---
+const openTargetDialog = async (dataset: Dataset) => {
+    datasetToRename.value = dataset; // Reuse this ref for context
+    
+    // Reuse preview logic to fetch headers
+    // If it is a sample or storage URL, we try to fetch.
+    if (dataset.storagePath.startsWith('http')) {
+        try {
+             // 1. Fetch headers
+             const response = await axios.get(dataset.storagePath, { 
+                headers: { Range: 'bytes=0-1024' } 
+             });
+             const text = response.data;
+             const lines = text.split('\n').map((line: string) => line.trim()).filter((line: string) => line);
+             if (lines.length > 0) {
+                 const headers = (lines[0] || '').split(',').map((h: string) => h.trim());
+                 previewHeaders.value = headers;
+                 
+                 // 2. Set current selection
+                 changeTargetValue.value = dataset.targetColumn || null;
+                 changeTargetDialog.value = true;
+             }
+        } catch(e) {
+            console.error("Failed to fetch headers", e);
+            alert("Could not load CSV headers. Please ensure backend is running.");
+        }
+    }
+};
+
+const confirmChangeTarget = async () => {
+    if (!datasetToRename.value || !changeTargetValue.value) return;
+    await datasetsStore.reanalyzeDataset(datasetToRename.value.id, changeTargetValue.value);
+    changeTargetDialog.value = false;
+    showSuccess.value = true;
+};
+
+const handleDelete = async (id: string) => {
   if (confirm('Are you sure you want to delete this dataset?')) {
-    await datasetsStore.deleteDataset(id, path);
+    await datasetsStore.deleteDataset(id);
   }
 };
 
@@ -420,8 +585,8 @@ onMounted(async () => {
 
 <style scoped>
 .upload-zone {
-  border: 2px dashed rgba(128, 128, 128, 0.4); /* Visible in both modes */
-  background: rgba(128, 128, 128, 0.05); /* Subtle bg for both */
+  border: 2px dashed rgba(128, 128, 128, 0.4); 
+  background: rgba(128, 128, 128, 0.05); 
   transition: all 0.3s ease;
   cursor: pointer;
 }

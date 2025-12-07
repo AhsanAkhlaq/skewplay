@@ -1,135 +1,188 @@
 import { defineStore } from 'pinia';
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  getDocs, 
-  serverTimestamp, 
-  deleteDoc, 
+import { ref } from 'vue';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  deleteDoc,
   doc,
-  updateDoc 
+  serverTimestamp
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { useAuthStore } from './auth';
+import { db, auth } from '../lib/firebase';
 
-// --- Schema Definition ---
-export interface WorkflowState {
-  datasetId: string | null;
-  preprocessConfig: { scaling?: string; encoding?: string };
-  mitigationTechnique: string | null;
-  modelConfig: { classifier?: string; hyperparams?: Record<string, any> };
-  resultsId: string | null;
+// --- 1. REUSABLE CONFIG INTERFACE ---
+export interface PipelineConfig {
+  preprocessing: {
+    scaling: 'MinMax' | 'Standard' | 'Robust' | 'None';
+    encoding: 'OneHot' | 'Label' | 'Target' | 'None';
+    splitRatio: number; // e.g., 0.2
+  };
+  imbalance: {
+    technique: 'SMOTE' | 'ADASYN' | 'RandomUnder' | 'TomekLinks' | 'None';
+    params: {
+      k_neighbors?: number; // For SMOTE
+      sampling_strategy?: number | string; // e.g., 'auto' or 0.5
+    };
+  };
+  model: {
+    algorithm: 'RandomForest' | 'XGBoost' | 'LogisticRegression' | 'SVM';
+    hyperparameters: {
+      n_estimators?: number; // RF/XGB
+      max_depth?: number;    // RF/XGB
+      C?: number;            // SVM/LR
+      kernel?: string;       // SVM
+    };
+  };
 }
 
+// --- 2. WORKFLOW INTERFACE ---
 export interface Workflow {
-  id?: string;
+  id: string;
   userId: string;
+  datasetId: string; // Link to the Raw Input
   name: string;
-  status: 'Draft' | 'Completed';
-  state: WorkflowState;
-  createdAt: any;
-  updatedAt: any;
+  status: 'Draft' | 'Preprocessing' | 'Balancing' | 'Training' | 'Completed' | 'Failed';
+
+  // Total Size of this Experiment
+  storageUsedBytes: number;
+
+  // CONFIGURATION
+  config: PipelineConfig;
+
+  // AI RECOMMENDATION
+  aiRecommendation?: {
+    reasoning: string;
+    suggestedConfig: PipelineConfig;
+  };
+
+  // PIPELINE ARTIFACTS
+  artifacts: {
+    processedDataPath?: string;
+    balancedDataPath?: string;
+    modelPath?: string;
+    confusionMatrixUrl?: string; // e.g. .png
+    reportPdfUrl?: string;       // e.g. .pdf
+  };
+
+  // METRICS
+  results?: {
+    accuracy: number;
+    f1Score: number;
+    precision: number;
+    recall: number;
+    executionTimeSeconds: number;
+  };
+
+  createdAt: any; // Timestamp
+  updatedAt: any; // Timestamp
 }
 
-export const useWorkflowsStore = defineStore('workflows', {
-  state: () => ({
-    workflows: [] as Workflow[],
-    isLoading: false,
-    error: null as string | null,
-  }),
+export const useWorkflowsStore = defineStore('workflows', () => {
+  const workflows = ref<Workflow[]>([]);
+  const isLoading = ref(false);
+  const error = ref<string | null>(null);
 
-  actions: {
-    // --- 1. Fetch Workflows ---
-    async fetchWorkflows() {
-      const auth = useAuthStore();
-      if (!auth.user) return;
+  const fetchWorkflows = async () => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
 
-      this.isLoading = true;
-      try {
-        const q = query(collection(db, 'workflows'), where('userId', '==', auth.user.uid));
-        const querySnapshot = await getDocs(q);
-        this.workflows = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workflow));
-      } catch (err) {
-        this.error = 'Failed to load workflows';
-      } finally {
-        this.isLoading = false;
-      }
-    },
+      const q = query(
+        collection(db, 'workflows'),
+        where('userId', '==', user.uid)
+      );
 
-    // --- 2. Create Workflow ---
-    async createWorkflow(name: string) {
-      const auth = useAuthStore();
-      if (!auth.user) return;
+      const querySnapshot = await getDocs(q);
+      const fetched: Workflow[] = [];
 
-      // A. Check Limit (Max 5 for Basic)
-      if (auth.profile?.tier === 'Basic' && this.workflows.length >= 5) {
-        this.error = 'Workflow limit reached (5). Upgrade to create more.';
-        throw new Error(this.error);
-      }
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        // Basic data mapping, handling potentially missing fields
+        fetched.push({
+          id: doc.id,
+          userId: data.userId,
+          datasetId: data.datasetId,
+          name: data.name,
+          status: data.status,
+          storageUsedBytes: data.storageUsedBytes || 0,
+          config: data.config || {},
+          artifacts: data.artifacts || {},
+          results: data.results,
+          aiRecommendation: data.aiRecommendation,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt
+        } as Workflow);
+      });
 
-      this.isLoading = true;
-      try {
-        const newWorkflow: Omit<Workflow, 'id'> = {
-          userId: auth.user.uid,
-          name,
-          status: 'Draft',
-          state: {
-            datasetId: null,
-            preprocessConfig: {},
-            mitigationTechnique: null,
-            modelConfig: {},
-            resultsId: null
-          },
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
+      // Ensure sorted by date desc
+      fetched.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
-        const docRef = await addDoc(collection(db, 'workflows'), newWorkflow);
-        
-        const created = { id: docRef.id, ...newWorkflow } as Workflow;
-        this.workflows.push(created);
-        
-        return created;
-      } catch (err: any) {
-        this.error = 'Failed to create workflow';
-        throw err;
-      } finally {
-        this.isLoading = false;
-      }
-    },
+      workflows.value = fetched;
 
-    // --- 3. Update Workflow Step ---
-    async updateWorkflowState(id: string, partialState: Partial<WorkflowState>) {
-      try {
-        // Deep merge logic would go here, for MVP we do shallow merge of top keys
-        // In Firestore we can use dot notation for nested updates "state.datasetId"
-        const updateData: any = { updatedAt: serverTimestamp() };
-        
-        for (const [key, value] of Object.entries(partialState)) {
-          updateData[`state.${key}`] = value;
-        }
-
-        await updateDoc(doc(db, 'workflows', id), updateData);
-        
-        // Update local state
-        const wf = this.workflows.find(w => w.id === id);
-        if (wf) {
-           wf.state = { ...wf.state, ...partialState };
-        }
-      } catch (err) {
-        console.error(err);
-        this.error = 'Failed to save progress';
-      }
-    },
-    
-    async deleteWorkflow(id: string) {
-        try {
-            await deleteDoc(doc(db, 'workflows', id));
-            this.workflows = this.workflows.filter(w => w.id !== id);
-        } catch (err) {
-            this.error = "Failed to delete workflow";
-        }
+    } catch (e: any) {
+      console.error("Error fetching workflows:", e);
+      error.value = "Failed to load workflows.";
+    } finally {
+      isLoading.value = false;
     }
-  }
+  };
+
+  const createWorkflow = async (name: string, datasetId: string, initialConfig: PipelineConfig) => {
+    isLoading.value = true;
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error("Must be logged in");
+
+      const newWorkflow: Omit<Workflow, 'id'> = {
+        userId: user.uid,
+        datasetId: datasetId,
+        name: name,
+        status: 'Draft',
+        storageUsedBytes: 0,
+        config: initialConfig,
+        artifacts: {},
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      const docRef = await addDoc(collection(db, 'workflows'), newWorkflow);
+
+      const created = {
+        id: docRef.id,
+        ...newWorkflow,
+        createdAt: { seconds: Date.now() / 1000 } // Optimistic update
+      } as Workflow;
+
+      workflows.value = [created, ...workflows.value];
+
+    } catch (e: any) {
+      console.error(e);
+      error.value = "Failed to create workflow";
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const deleteWorkflow = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'workflows', id));
+      workflows.value = workflows.value.filter(w => w.id !== id);
+    } catch (e: any) {
+      console.error("Delete error", e);
+      error.value = "Failed to delete workflow.";
+    }
+  };
+
+  return {
+    workflows,
+    isLoading,
+    error,
+    fetchWorkflows,
+    createWorkflow,
+    deleteWorkflow
+  };
 });

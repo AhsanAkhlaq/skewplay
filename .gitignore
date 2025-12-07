@@ -10,7 +10,8 @@ lerna-debug.log*
 node_modules
 dist-ssr
 *.local
-
+dist
+__pycache__
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -23,7 +24,4 @@ dist-ssr
 *.sw?
 
 # Ignore samples folder
-samples/
-uploads/
-samples.zip
-uploads.zip
+storage/users
