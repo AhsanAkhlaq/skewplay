@@ -1,0 +1,63 @@
+# Project Analysis: SkewPlay Frontend
+
+## 1. Overview
+SkewPlay is a Vue.js 3 application designed as a "No-Code/Low-Code" machine learning platform, specifically focused on handling data imbalances. It integrates with Firebase for authentication and persistence, and a Python backend for heavy ML processing.
+
+**Tech Stack:**
+-   **Framework:** Vue 3 (Composition API) + Vite
+-   **Language:** TypeScript
+-   **UI Library:** Vuetify 3 (Material Design)
+-   **State Management:** Pinia
+-   **Routing:** Vue Router
+-   **Backend (Frontend-facing):** Firebase (Auth, Firestore, Storage) + Python API (via Axios to `localhost:8000`)
+
+## 2. Directory Structure (`src/`)
+The project follows a standard scalable Vue architecture:
+
+-   `views/`: Top-level page components.
+    -   [DashboardView.vue](file:///d:/University%20Workspace/FinalYearProject/skewplay2/frontend/src/views/DashboardView.vue): User hub with usage stats and recent activity.
+    -   `workflows/`: Core feature logic for ML pipelining.
+    -   `datasets/`: Data management.
+    -   `auth/`: Login/Register screens.
+-   `stores/`: Pinia stores managing global state and data access.
+    -   [auth.ts](file:///d:/University%20Workspace/FinalYearProject/skewplay2/frontend/src/stores/auth.ts): Authentication state, user profile syncing with Firestore `users` collection.
+    -   [workflows.ts](file:///d:/University%20Workspace/FinalYearProject/skewplay2/frontend/src/stores/workflows.ts): CRUD for experiments, status tracking, and triggering API runs.
+    -   [datasets.ts](file:///d:/University%20Workspace/FinalYearProject/skewplay2/frontend/src/stores/datasets.ts): Dataset metadata management.
+-   `router/`: Route definitions with navigation guards for authentication (`requiresAuth`, `guestOnly`).
+-   `lib/`: Infrastructure code (Firebase initialization).
+
+## 3. Key Components Analysis
+
+### WorkflowEditor ([views/workflows/WorkflowEditor.vue](file:///d:/University%20Workspace/FinalYearProject/skewplay2/frontend/src/views/workflows/WorkflowEditor.vue))
+This is the most complex component, orchestrating the ML experiment lifecycle.
+-   **Pattern**: Multi-step wizard (Stepper) pattern.
+-   **Steps**: Dataset -> Preprocessing -> Imbalance -> Model -> Results.
+-   **State**: Local reactive state (`config`) tracks user choices, synced to global store/Firestore on auto-save or run.
+-   **Dynamic UI**: The sidebar allows navigation between steps; the main content area switches based on `currentStep`.
+-   **Visualization**: Displays metrics and artifacts (confusion matrix) in the final step.
+
+### Dashboard ([views/DashboardView.vue](file:///d:/University%20Workspace/FinalYearProject/skewplay2/frontend/src/views/DashboardView.vue))
+-   **Purpose**: User retention and quick access.
+-   **Logic**: Computed properties calculate tier usage limits (e.g., max experiments for 'Basic' users).
+-   **Design**: Uses glassmorphism effects (`glass-card` class) and decorative elements.
+
+## 4. Data Flow & State Management
+1.  **Authentication**: Handled by `authStore`. It persists session and user profile data (Tier, Usage Stats) from Firestore.
+2.  **API Communication**:
+    -   **Firestore**: Primary source of truth for metadata (Workflows, Datasets).
+    -   **Python API**: Used for *execution* (`/run` endpoint). Inputs are sent as FormData.
+3.  **Reactivity**: Stores use `ref` for state and `actions` for async operations. Components consume these stores directly.
+
+## 5. Design & Aesthetics
+-   **Styling**: Uses Vuetify's utility classes (`d-flex`, `pa-6`, `text-h4`) extensively.
+-   **Custom CSS**: [style.css](file:///d:/University%20Workspace/FinalYearProject/skewplay2/frontend/src/style.css) and scoped styles for glass effects and specific tweaks.
+-   **Theme**: Supports Dark/Light modes (via Vuetify theme system), though code leans towards explicit coloring in some places.
+
+## 6. Code Quality Observations
+-   **Strengths**:
+    -   Strong typing with TypeScript interfaces ([Workflow](file:///d:/University%20Workspace/FinalYearProject/skewplay2/frontend/src/stores/workflows.ts#46-75), [PipelineConfig](file:///d:/University%20Workspace/FinalYearProject/skewplay2/frontend/src/stores/workflows.ts#21-44)).
+    -   Clear separation of UI (Views) and Logic (Stores).
+    -   Modular component design.
+-   **Potential Improvements**:
+    -   Error handling in stores is basic (`console.error`).
+    -   Hardcoded API URL (`http://localhost:8000`) in [workflows.ts](file:///d:/University%20Workspace/FinalYearProject/skewplay2/frontend/src/stores/workflows.ts) should be an environment variable.

@@ -20,7 +20,6 @@
                 <v-chip size="small" color="white" variant="outlined" class="me-2 font-weight-bold">
                   {{ currentTier }} Tier
                 </v-chip>
-                <span class="text-caption text-white opacity-80 text-uppercase font-weight-bold">Your Mission</span>
               </div>
               
               <h1 class="text-h4 text-md-h3 font-weight-bold text-white mb-3">
@@ -28,7 +27,7 @@
               </h1>
               
               <p class="text-subtitle-1 text-white opacity-90 mb-6" style="max-width: 600px;">
-                You have used <strong>{{ workflowCount }} of {{ workflowLimitLabel }} workflows</strong>. 
+                You have used <strong>{{ workflowCount }} of {{ workflowLimitLabel }} experiments</strong>. 
                 Ready to tackle some new imbalance challenges today?
               </p>
 
@@ -39,7 +38,7 @@
                   color="white"
                   class="text-primary font-weight-bold"
                   prepend-icon="mdi-plus"
-                  to="/app/datasets"
+                  to="/app/workflows"
                   elevation="2"
                   :disabled="isBasic && workflowCount >= 5"
                 >
@@ -60,14 +59,22 @@
 
             <!-- Active Stage Widget (Desktop Only) -->
             <v-col cols="12" md="4" class="text-md-right">
-               <v-card class="d-inline-block text-start pa-4 rounded-lg glass-card" style="min-width: 240px; background: rgba(255,255,255,0.1);">
-                  <div class="text-caption text-black opacity-70 mb-1">Last Active Stage</div>
+               <v-card 
+                  class="d-inline-block text-start pa-4 rounded-lg glass-card" 
+                  style="min-width: 240px; background: rgba(255,255,255,0.1);"
+                  :class="{ 'cursor-pointer hover-scale': !!latestWorkflow }"
+                  v-ripple="!!latestWorkflow"
+                  @click="goToHeroWorkflow"
+               >
+                  <div class="text-caption text-black opacity-70 mb-1">
+                     Last Experiment: <span class="font-weight-bold">{{ latestWorkflow?.name ?? 'None' }}</span>
+                  </div>
                   <div class="text-h4 font-weight-bold text-black mb-1">
                     {{ activeStageLabel }}
                   </div>
                   <div class="d-flex align-center text-caption text-secondary font-weight-bold">
                     <v-icon icon="mdi-clock-outline" size="small" class="me-1"></v-icon>
-                    {{ latestWorkflow?.name ?? 'Ready to start' }}
+                    Click to continue
                   </div>
                </v-card>
             </v-col>
@@ -83,7 +90,7 @@
       <v-col cols="12" md="8">
         <div class="d-flex align-center justify-space-between mb-4">
           <!-- FIX: text-high-emphasis ensures visibility in Dark Mode -->
-          <h3 class="text-h6 font-weight-bold text-high-emphasis">Recent Workflows</h3>
+          <h3 class="text-h6 font-weight-bold text-high-emphasis">Recent Experiments</h3>
           <v-btn variant="text" size="small" color="primary" to="/app/workflows" append-icon="mdi-arrow-right">
             View All
           </v-btn>
@@ -106,7 +113,7 @@
                  </div>
               </template>
               <!-- FIX: Readable text color -->
-              <v-list-item-title class="text-body-1 font-weight-bold text-medium-emphasis">No workflows found</v-list-item-title>
+              <v-list-item-title class="text-body-1 font-weight-bold text-medium-emphasis">No experiments found</v-list-item-title>
               <v-list-item-subtitle class="text-disabled">Upload a dataset to get started.</v-list-item-subtitle>
             </v-list-item>
 
@@ -157,7 +164,7 @@
           <!-- Workflow Limit -->
           <div class="mb-5">
              <div class="d-flex justify-space-between text-caption mb-2 font-weight-bold">
-                <span class="text-medium-emphasis">Workflows Created</span>
+                <span class="text-medium-emphasis">Experiments Created</span>
                 <!-- Red text only if Basic AND over limit -->
                 <span :class="(isBasic && workflowCount >= 5) ? 'text-error' : 'text-primary'">
                   {{ workflowCount }} / {{ workflowLimitLabel }}
@@ -231,11 +238,13 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useDatasetsStore } from '../stores/datasets';
 import { useWorkflowsStore } from '../stores/workflows';
 
 // 1. Initialize Stores
+const router = useRouter();
 const authStore = useAuthStore();
 const datasetsStore = useDatasetsStore();
 const workflowsStore = useWorkflowsStore();
@@ -296,11 +305,24 @@ const activeStageLabel = computed(() => {
     return latestWorkflow.value.status === 'Draft' ? 'In Progress' : 'Finished';
 });
 
+const goToHeroWorkflow = () => {
+    if (latestWorkflow.value) {
+        router.push(`/app/workflows/${latestWorkflow.value.id}`);
+    }
+};
+
 </script>
 
 <style scoped>
 .hover-item:hover {
   background-color: rgba(var(--v-theme-primary), 0.05);
   transition: background-color 0.2s ease;
+}
+
+.hover-scale {
+    transition: transform 0.2s;
+}
+.hover-scale:hover {
+    transform: scale(1.02);
 }
 </style>

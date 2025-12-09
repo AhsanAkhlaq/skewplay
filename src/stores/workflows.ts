@@ -7,32 +7,37 @@ import {
   getDocs,
   addDoc,
   deleteDoc,
+  updateDoc,
   doc,
   serverTimestamp
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
+import axios from 'axios';
+import { useDatasetsStore } from './datasets';
 
-// --- 1. REUSABLE CONFIG INTERFACE ---
+const PYTHON_API_URL = 'http://localhost:8000';
+
+// --- 1. CONFIG INTERFACE ---
 export interface PipelineConfig {
   preprocessing: {
     scaling: 'MinMax' | 'Standard' | 'Robust' | 'None';
     encoding: 'OneHot' | 'Label' | 'Target' | 'None';
-    splitRatio: number; // e.g., 0.2
+    splitRatio: number;
   };
   imbalance: {
     technique: 'SMOTE' | 'ADASYN' | 'RandomUnder' | 'TomekLinks' | 'None';
     params: {
-      k_neighbors?: number; // For SMOTE
-      sampling_strategy?: number | string; // e.g., 'auto' or 0.5
+      k_neighbors?: number;
+      sampling_strategy?: number | string;
     };
   };
   model: {
     algorithm: 'RandomForest' | 'XGBoost' | 'LogisticRegression' | 'SVM';
     hyperparameters: {
-      n_estimators?: number; // RF/XGB
-      max_depth?: number;    // RF/XGB
-      C?: number;            // SVM/LR
-      kernel?: string;       // SVM
+      n_estimators?: number;
+      max_depth?: number;
+      C?: number;
+      kernel?: string;
     };
   };
 }
@@ -41,32 +46,22 @@ export interface PipelineConfig {
 export interface Workflow {
   id: string;
   userId: string;
-  datasetId: string; // Link to the Raw Input
+  datasetId: string;
   name: string;
   status: 'Draft' | 'Preprocessing' | 'Balancing' | 'Training' | 'Completed' | 'Failed';
-
-  // Total Size of this Experiment
   storageUsedBytes: number;
-
-  // CONFIGURATION
   config: PipelineConfig;
-
-  // AI RECOMMENDATION
   aiRecommendation?: {
     reasoning: string;
     suggestedConfig: PipelineConfig;
   };
-
-  // PIPELINE ARTIFACTS
   artifacts: {
     processedDataPath?: string;
     balancedDataPath?: string;
     modelPath?: string;
-    confusionMatrixUrl?: string; // e.g. .png
-    reportPdfUrl?: string;       // e.g. .pdf
+    confusionMatrixUrl?: string;
+    reportPdfUrl?: string;
   };
-
-  // METRICS
   results?: {
     accuracy: number;
     f1Score: number;
@@ -74,15 +69,15 @@ export interface Workflow {
     recall: number;
     executionTimeSeconds: number;
   };
-
-  createdAt: any; // Timestamp
-  updatedAt: any; // Timestamp
+  createdAt: any;
+  updatedAt: any;
 }
 
 export const useWorkflowsStore = defineStore('workflows', () => {
   const workflows = ref<Workflow[]>([]);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const datasetsStore = useDatasetsStore();
 
   const fetchWorkflows = async () => {
     isLoading.value = true;
@@ -101,7 +96,6 @@ export const useWorkflowsStore = defineStore('workflows', () => {
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        // Basic data mapping, handling potentially missing fields
         fetched.push({
           id: doc.id,
           userId: data.userId,
@@ -118,9 +112,7 @@ export const useWorkflowsStore = defineStore('workflows', () => {
         } as Workflow);
       });
 
-      // Ensure sorted by date desc
       fetched.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-
       workflows.value = fetched;
 
     } catch (e: any) {
@@ -154,14 +146,101 @@ export const useWorkflowsStore = defineStore('workflows', () => {
       const created = {
         id: docRef.id,
         ...newWorkflow,
-        createdAt: { seconds: Date.now() / 1000 } // Optimistic update
-      } as Workflow;
+        createdAt: { seconds: Date.now() / 1000 }
+      } as unknown as Workflow;
 
       workflows.value = [created, ...workflows.value];
+      return docRef.id;
 
     } catch (e: any) {
       console.error(e);
       error.value = "Failed to create workflow";
+      throw e;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const updateWorkflow = async (id: string, updates: Partial<Workflow>) => {
+    try {
+      const index = workflows.value.findIndex(w => w.id === id);
+      if (index === -1) return;
+
+      // Local
+      workflows.value[index] = { ...workflows.value[index], ...updates } as Workflow;
+
+      // Firestore
+      const docRef = doc(db, 'workflows', id);
+
+      // Add timestamp
+      const payload = { ...updates, updatedAt: serverTimestamp() };
+
+      await updateDoc(docRef, payload);
+
+    } catch (e: any) {
+      console.error("Update error:", e);
+      error.value = "Failed to save workflow.";
+    }
+  };
+
+  const runExperiment = async (workflowId: string) => {
+    isLoading.value = true;
+    try {
+      const workflow = workflows.value.find(w => w.id === workflowId);
+      if (!workflow) throw new Error("Workflow not found"); // Should fetch if strictly not found? Assume loaded.
+
+      const user = auth.currentUser;
+      if (!user) throw new Error("User?!");
+
+      await updateWorkflow(workflowId, { status: 'Training' });
+
+      // Resolve Dataset File Name
+      // We need to check datasetsStore. If not loaded, fetch them.
+      if (datasetsStore.datasets.length === 0) {
+        await datasetsStore.fetchDatasets();
+      }
+      const dataset = datasetsStore.datasets.find(d => d.id === workflow.datasetId);
+      if (!dataset) throw new Error("Linked dataset not found.");
+
+      // Get correct fileName (backend needs 'fileName' in Form, which might be Display Name OR Actual Name)
+      // Based on backend implementation:
+      // if sample, uses existing map. 
+      // if user, uses `{userId}/datasets/{fileName}`.
+      // In datasets.ts, `fileName` is often the display name. `storagePath` is full URL.
+      // But backend `upload` saves as `timestamp_filename`. 
+      // And backend `/reanalyze` uses `fileName` param against `datasets/` dir.
+      // BUT `upload` returned `fileName: file.filename` (original).
+      // This is a known ambiguity I noted earlier!
+
+      // Backend Logic for `/run`:
+      // if sample, reads `SAMPLES_DIR/fileName`.
+      // else reads `STORAGE_DIR/userId/datasets/fileName`.
+
+      // We need the *actual on-disk* filename.
+      // User uploaded file: `storagePath` = .../datasets/TIMESTAMP_NAME.
+      // So we should extract actual filename from `storagePath`.
+      const parts = dataset.storagePath.split('/');
+      const actualFileName = parts[parts.length - 1] || dataset.fileName;
+
+      // Prepare Payload
+      const formData = new FormData();
+      formData.append('fileName', actualFileName);
+      formData.append('targetCol', dataset.targetColumn || 'target'); // Use dataset's target
+      formData.append('config', JSON.stringify(workflow.config));
+
+      const response = await axios.post(`${PYTHON_API_URL}/run`, formData);
+      const result = response.data; // { status, results, artifacts }
+
+      await updateWorkflow(workflowId, {
+        status: 'Completed',
+        results: result.results,
+        artifacts: result.artifacts
+      });
+
+    } catch (e: any) {
+      console.error("Run error:", e);
+      error.value = e.message;
+      await updateWorkflow(workflowId, { status: 'Failed' });
     } finally {
       isLoading.value = false;
     }
@@ -183,6 +262,8 @@ export const useWorkflowsStore = defineStore('workflows', () => {
     error,
     fetchWorkflows,
     createWorkflow,
+    updateWorkflow,
+    runExperiment,
     deleteWorkflow
   };
 });

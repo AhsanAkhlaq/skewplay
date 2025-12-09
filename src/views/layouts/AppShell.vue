@@ -23,22 +23,7 @@
         </div>
       </div>
 
-      <!-- SEARCH BAR (Center) -->
-      <v-text-field
-        v-if="['dashboard', 'workflows'].includes(route.name as string)"
-        v-model="searchQuery"
-        prepend-inner-icon="mdi-magnify"
-        placeholder="Search workflows..."
-        variant="outlined"
-        density="compact"
-        hide-details
-        rounded="lg"
-        :base-color="isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'"
-        :bg-color="isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)'"
-        :color="isDark ? 'white' : 'primary'"
-        class="app-search ms-4"
-        style="width: 100%; max-width: 720px;"
-      ></v-text-field>
+      <v-spacer></v-spacer>
 
       <v-spacer></v-spacer>
 
@@ -128,7 +113,7 @@
     </v-main>
 
     <v-footer app color="transparent" class="text-caption text-medium-emphasis justify-center py-4">
-       <span>© {{ new Date().getFullYear() }} SkewPlay</span>
+       <span>© {{ new Date().getFullYear() }} <i>Skew</i>Play</span>
     </v-footer>
 
   </v-layout>
@@ -136,7 +121,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { useDisplay, useTheme } from 'vuetify';
 import { useAuthStore } from '../../stores/auth';
 import { useDatasetsStore } from '../../stores/datasets';
@@ -147,12 +132,10 @@ const datasetsStore = useDatasetsStore();
 const workflowsStore = useWorkflowsStore();
 const theme = useTheme();
 const router = useRouter();
-const route = useRoute();
 const { mdAndUp } = useDisplay();
 
 const drawer = ref(true);
 const rail = ref(true); // Default to Rail (Mini) mode like Gmail
-const searchQuery = ref('');
 
 const toggleDrawer = () => {
     if (mdAndUp.value) {
@@ -167,7 +150,7 @@ const toggleDrawer = () => {
 const links = [
   { label: 'Dashboard', to: '/app/dashboard', icon: 'mdi-view-dashboard-outline' },
   { label: 'Datasets', to: '/app/datasets', icon: 'mdi-database-outline' },
-  { label: 'Workflows', to: '/app/workflows', icon: 'mdi-state-machine' },
+  { label: 'Experiments', to: '/app/workflows', icon: 'mdi-state-machine' },
   { label: 'Profile', to: '/app/profile', icon: 'mdi-account-circle-outline' },
 ];
 

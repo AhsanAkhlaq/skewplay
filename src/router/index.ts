@@ -47,6 +47,11 @@ const router = createRouter({
           component: () => import('../views/workflows/WorkflowsView.vue'),
         },
         {
+          path: 'workflows/:id',
+          name: 'workflow-editor',
+          component: () => import('../views/workflows/WorkflowEditor.vue'),
+        },
+        {
           path: 'tutorials',
           name: 'tutorials',
           component: () => import('../views/tutorials/TutorialsView.vue'),
