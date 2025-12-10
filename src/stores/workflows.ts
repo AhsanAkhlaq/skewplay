@@ -17,7 +17,7 @@ import { useDatasetsStore } from './datasets';
 
 
 
-// --- 1. CONFIG INTERFACE ---
+// Config Interface
 export interface PipelineConfig {
   preprocessing: {
     scaling: 'MinMax' | 'Standard' | 'Robust' | 'None';
@@ -42,7 +42,7 @@ export interface PipelineConfig {
   };
 }
 
-// --- 2. WORKFLOW INTERFACE ---
+// Workflow Interface
 export interface Workflow {
   id: string;
   userId: string;
@@ -110,7 +110,7 @@ export const useWorkflowsStore = defineStore('workflows', () => {
           aiRecommendation: data.aiRecommendation,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
-          currentStep: data.currentStep // Added persistence mapping
+          currentStep: data.currentStep
         } as Workflow);
       });
 

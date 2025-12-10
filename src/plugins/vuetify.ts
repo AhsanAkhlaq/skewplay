@@ -2,35 +2,27 @@ import 'vuetify/styles';
 import { createVuetify } from 'vuetify';
 import { aliases, mdi } from 'vuetify/iconsets/mdi';
 
-// --- 1. LIGHT THEME (Clean & Airy) ---
+// Light Theme Configuration
 const skewPlayTheme = {
     dark: false,
     colors: {
-        // A neutral, warm gray base is more comfortable than stark white
-        background: '#F9FAFB', // Gray 50
-        surface: '#FFFFFF',    // Pure White
-
-        // A sophisticated Indigo-Violet for that "ML/AI" vibe
-        primary: '#4F46E5',    // Indigo 600
+        background: '#F9FAFB',
+        surface: '#FFFFFF',
+        primary: '#4F46E5',
         'primary-darken-1': '#4338CA',
-
-        // Teal is professional for data/secondary actions
-        secondary: '#0D9488',  // Teal 600
-
-        accent: '#8B5CF6',     // Violet 500
-        error: '#DC2626',      // Red 600 (Less neon than default)
-        info: '#2563EB',       // Blue 600
-        success: '#16A34A',    // Green 600
-        warning: '#D97706',    // Amber 600
-
-        // TEXT: High contrast "Zinc" grays are easier to read
-        'on-background': '#18181B', // Zinc 900
-        'on-surface': '#27272A',    // Zinc 800
+        secondary: '#0D9488',
+        accent: '#8B5CF6',
+        error: '#DC2626',
+        info: '#2563EB',
+        success: '#16A34A',
+        warning: '#D97706',
+        'on-background': '#18181B',
+        'on-surface': '#27272A',
         'on-primary': '#FFFFFF',
         'on-secondary': '#FFFFFF',
     },
     variables: {
-        'border-color': '#E4E4E7', // Zinc 200 (Subtle borders)
+        'border-color': '#E4E4E7',
         'hover-opacity': 0.04,
     },
 };

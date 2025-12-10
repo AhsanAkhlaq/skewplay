@@ -127,7 +127,7 @@
            </p>
         </div>
 
-        <!-- GRID -->
+        <!-- Grid -->
         <v-row v-else>
           <v-col
             v-for="workflow in filteredWorkflows"
@@ -280,10 +280,7 @@ const formatDate = (timestamp: any) => {
 const createWorkflow = async () => {
     if (!newWorkflowName.value || !selectedDatasetId.value) return;
 
-    // --- STORAGE CHECK ---
-    // authStore is available from outer scope
-    
-    // --- TIER LIMIT CHECK ---
+    // Storage and Tier Limits Check
     const MAX_WORKFLOWS_BASIC = 5;
     const isBasic = !authStore.profile?.tier || authStore.profile.tier === 'Basic';
     const currentCount = workflowsStore.workflows.length;
@@ -292,24 +289,23 @@ const createWorkflow = async () => {
         alert(`Basic Tier Limit Reached!\n\nYou have ${currentCount} experiments. The limit for Basic tier is ${MAX_WORKFLOWS_BASIC}.\n\nPlease delete old experiments or upgrade to Advanced to create more.`);
         return;
     }
-    // ------------------------
 
     const dataset = datasetsStore.datasets.find(d => d.id === selectedDatasetId.value);
     
     if (dataset) {
-        // Formula: Est = 2.5 * raw_size + 50MB
+        // Estimate run size (2.5 * raw_size + 50MB)
         const estimatedRunSize = (2.5 * dataset.sizeBytes) + (50 * 1024 * 1024);
         const currentUsage = authStore.profile?.usageStats.storageUsed || 0;
         const LIMIT = 1 * 1024 * 1024 * 1024; // 1 GB
         const MIN_FREE = 100 * 1024 * 1024;   // 100 MB
 
-        // 1. Hard Block: Must have at least 100MB free BEFORE run
+        // Require at least 100MB free
         if ((LIMIT - currentUsage) < MIN_FREE) {
             alert("Insufficient storage account. You need at least 100MB of free space to start a new experiment.");
             return;
         }
 
-        // 2. Warning: If Est + Current > Limit
+        // Warning if might exceed limit
         if ((currentUsage + estimatedRunSize) > LIMIT) {
             const confirmMsg = `Warning: This experiment is estimated to use ~${(estimatedRunSize / 1024 / 1024).toFixed(0)}MB. \n` +
                                `You have ${( (LIMIT - currentUsage) / 1024 / 1024).toFixed(0)}MB remaining. \n` +
@@ -319,7 +315,6 @@ const createWorkflow = async () => {
             }
         }
     }
-    // ---------------------
 
     // Default Initial Config
     const initialConfig: PipelineConfig = {

@@ -37,7 +37,7 @@
       <v-divider class="my-6"></v-divider>
 
       <v-row>
-        <!-- TARGET COLUMN SELECTION -->
+        <!-- Target Column Selection -->
         <v-col cols="12" md="6">
           <div class="text-caption font-weight-bold text-uppercase text-medium-emphasis mb-2">Target Variable</div>
           <v-select
@@ -63,7 +63,7 @@
           </div>
         </v-col>
 
-        <!-- STATS -->
+        <!-- Health Stats -->
         <v-col cols="12" md="6">
           <div class="text-caption font-weight-bold text-uppercase text-medium-emphasis mb-2">Data Health</div>
           <div v-if="!dataset?.anomalies?.length" class="d-flex align-center text-success mt-2">

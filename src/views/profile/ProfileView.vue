@@ -269,13 +269,13 @@ watch(
   { immediate: true }
 );
 
-// Step 1: Trigger Confirmation
+// Trigger Confirmation
 const confirmSave = () => {
     if (!isValid.value) return;
     showConfirmDialog.value = true;
 };
 
-// Step 2: Execute Save to Firebase
+// Execute Save to Firebase
 const executeSave = async () => {
   loading.value = true;
   try {

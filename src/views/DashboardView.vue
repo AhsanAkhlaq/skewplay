@@ -89,7 +89,7 @@
       <!-- LEFT COLUMN: Recent Workflows -->
       <v-col cols="12" md="8">
         <div class="d-flex align-center justify-space-between mb-4">
-          <!-- FIX: text-high-emphasis ensures visibility in Dark Mode -->
+          <!-- Text visibility in Dark Mode -->
           <h3 class="text-h6 font-weight-bold text-high-emphasis">Recent Experiments</h3>
           <v-btn variant="text" size="small" color="primary" to="/app/workflows" append-icon="mdi-arrow-right">
             View All
@@ -115,7 +115,7 @@
                     <v-icon icon="mdi-flask-empty-outline" size="40" color="grey"></v-icon>
                  </div>
               </template>
-              <!-- FIX: Readable text color -->
+              <!-- Readable text color -->
               <v-list-item-title class="text-body-1 font-weight-bold text-medium-emphasis">No experiments found</v-list-item-title>
               <v-list-item-subtitle class="text-disabled">Upload a dataset to get started.</v-list-item-subtitle>
             </v-list-item>
@@ -160,7 +160,6 @@
       <!-- RIGHT COLUMN: Stats & Limits -->
       <v-col cols="12" md="4">
         
-        <!-- FIX: text-high-emphasis -->
         <h3 class="text-h6 font-weight-bold mb-4 text-high-emphasis">Tier Usage</h3>
         <v-card class="pa-5 mb-6 rounded-lg border bg-surface" elevation="0">
           
@@ -246,7 +245,7 @@ import { useAuthStore } from '../stores/auth';
 import { useDatasetsStore } from '../stores/datasets';
 import { useWorkflowsStore } from '../stores/workflows';
 
-// 1. Initialize Stores
+// Initialize Stores
 const router = useRouter();
 const authStore = useAuthStore();
 const datasetsStore = useDatasetsStore();
@@ -257,7 +256,7 @@ const getStageColor = (status: string) => {
   return status === 'Completed' ? 'success' : 'grey';
 };
 
-// 2. Fetch Data on Load
+// Fetch Data on Load
 onMounted(async () => {
   if (authStore.user) {
     await Promise.all([
@@ -273,7 +272,7 @@ const name = computed(() => authStore.profile?.displayName?.split(' ')[0] ?? 'Ex
 const currentTier = computed(() => authStore.profile?.tier || 'Basic');
 const isBasic = computed(() => currentTier.value === 'Basic');
 
-// 1. Workflow Logic
+// Workflow Logic
 const recentWorkflows = computed(() => workflowsStore.workflows.slice(0, 5));
 const workflowCount = computed(() => workflowsStore.workflows.length); 
 
@@ -283,7 +282,7 @@ const workflowLimitLabel = computed(() => isBasic.value ? '5' : 'Unlimited');
 
 const workflowPercent = computed(() => Math.min(100, (workflowCount.value / workflowLimit.value) * 100));
 
-// 2. Storage Logic
+// Storage Logic
 const storageUsed = computed(() => {
   // Convert bytes to GB
   const bytes = datasetsStore.totalUserUsageBytes || 0;
@@ -296,7 +295,6 @@ const storageUsedFormatted = computed(() =>
 
 const storageLimit = computed(() => isBasic.value ? 1 : 10);
 
-// FIX: Now comparing number vs number
 const storagePercent = computed(() => 
   Math.min(100, (storageUsed.value / storageLimit.value) * 100)
 );

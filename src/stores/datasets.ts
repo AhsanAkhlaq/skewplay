@@ -20,25 +20,23 @@ export interface Dataset {
   id: string;
   userId: string;
 
-  // 1. File Details
-  fileName: string; // Display Name
+  // File Metadata
+  fileName: string;
   sizeBytes: number;
   rowCount: number;
 
-  // 2. Location
+  // Location & Status
   storagePath: string;
   isSample: boolean;
+  isPublic?: boolean;
+  createdAt: any;
 
-  // 3. Analysis Snapshot
+  // Analysis Data
   type: 'binary' | 'multiclass' | 'regression';
-  targetColumn?: string; // Standardized name
-
+  targetColumn?: string;
   imbalanceRatios: Record<string, number>;
   anomalies: string[];
   targetMissingPct?: number;
-
-  createdAt: any;
-  isPublic?: boolean;
 }
 
 export const useDatasetsStore = defineStore('datasets', () => {
@@ -55,7 +53,7 @@ export const useDatasetsStore = defineStore('datasets', () => {
     try {
       const user = auth.currentUser;
 
-      // 1. Fetch User Datasets
+      // Fetch User Datasets
       let userDatasets: Dataset[] = [];
       if (user) {
         const q = query(
@@ -69,11 +67,10 @@ export const useDatasetsStore = defineStore('datasets', () => {
         } as Dataset));
       }
 
-      // 2. Fetch Sample Datasets
+      // Fetch Sample Datasets
       let sampleDatasets: Dataset[] = [];
       try {
         const response = await axios.get(`${PYTHON_API_URL}/samples`);
-        // Map backend 'targetCol' to frontend 'targetColumn'
         sampleDatasets = response.data.map((d: any) => ({
           ...d,
           targetColumn: d.targetCol || 'Unknown'
@@ -82,7 +79,7 @@ export const useDatasetsStore = defineStore('datasets', () => {
         console.warn("Failed to fetch samples:", err);
       }
 
-      // 3. Merge & Sort
+      // Merge & Sort (Newest first)
       userDatasets.sort((a, b) => {
         const timeA = a.createdAt?.seconds || 0;
         const timeB = b.createdAt?.seconds || 0;
@@ -229,12 +226,11 @@ export const useDatasetsStore = defineStore('datasets', () => {
 
       const index = datasets.value.findIndex(d => d.id === id);
       if (index !== -1) {
-        // Explicit cast to fix TS error
         const updated = {
           ...datasets.value[index],
           ...updates,
           id: id
-        } as Dataset; // Fix: Cast to Dataset to guarantee id presence
+        } as Dataset;
         datasets.value[index] = updated;
       }
 
@@ -251,15 +247,11 @@ export const useDatasetsStore = defineStore('datasets', () => {
       const dataset = datasets.value.find(d => d.id === id);
       if (!dataset) throw new Error("Dataset not found");
 
-      // Extract actual filename from storagePath if possible, or use logic consistent with backend
-      // Backend expects the on-disk filename.
-      // If sample, filename is just the name. 
-      // If user file, it is in the URL: .../datasets/{TIMESTAMP_NAME}
-
+      // Use filename from storage path for user datasets (contains parameters)
       let actualFileName = dataset.fileName;
       if (dataset.storagePath.startsWith('http')) {
         const parts = dataset.storagePath.split('/');
-        actualFileName = parts[parts.length - 1] || actualFileName; // Extracts the last segment
+        actualFileName = parts[parts.length - 1] || actualFileName;
       }
 
       const formData = new FormData();

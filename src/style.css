@@ -76,7 +76,7 @@ body {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 2px solid rgba(0, 0, 0, 0.08);
   /* Softer shadow */
   transition: all 0.3s ease;
 }
@@ -85,7 +85,7 @@ body {
 .v-theme--skewPlayTheme .glass-card {
   background: rgba(255, 255, 255, 0.8) !important;
   /* Higher opacity for readability */
-  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  border: 2px solid rgba(0, 0, 0, 0.12) !important;
   color: rgb(var(--v-theme-on-surface));
 }
 

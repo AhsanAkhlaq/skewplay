@@ -68,29 +68,25 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     init() {
       onAuthStateChanged(auth, async (currentUser) => {
-        // 1. CHECK TIME: If user exists, check if session is stale
+        // Check for session timeout
         if (currentUser) {
           const lastActive = localStorage.getItem('lastActiveTime');
           const now = Date.now();
 
           if (lastActive && (now - parseInt(lastActive) > INACTIVITY_LIMIT)) {
-            // Time exceeded! Force logout immediately
-            console.log('Session expired while away.');
             await this.logout();
             this.isReady = true;
-            return; // Stop here
+            return;
           }
         }
 
-        // 2. Normal Login Logic (only runs if time checks passed)
+        // Handle active session
         this.user = currentUser;
         if (currentUser) {
           await this.fetchProfile(currentUser.uid);
-          // Refresh the timestamp since they just loaded the app
           localStorage.setItem('lastActiveTime', Date.now().toString());
         } else {
           this.profile = null;
-          // Clear timestamp on logout
           localStorage.removeItem('lastActiveTime');
         }
 
@@ -134,10 +130,9 @@ export const useAuthStore = defineStore('auth', {
           };
           await setDoc(docRef, newProfile);
           this.profile = newProfile;
-        } else {
           this.profile = docSnap.data() as UserProfile;
         }
-        this.user = user; // FIX: Update state immediately
+        this.user = user;
       } catch (err: any) {
         this.error = mapAuthError(err.code);
         throw err;
@@ -162,7 +157,7 @@ export const useAuthStore = defineStore('auth', {
           billingHistory: []
         };
         await setDoc(doc(db, 'users', credential.user.uid), newProfile);
-        this.user = credential.user; // FIX: Update state immediately
+        this.user = credential.user;
         this.profile = newProfile;
       } catch (err: any) {
         this.error = mapAuthError(err.code);
@@ -177,7 +172,7 @@ export const useAuthStore = defineStore('auth', {
       this.error = null;
       try {
         const credential = await signInWithEmailAndPassword(auth, email, password);
-        this.user = credential.user; // FIX: Update state immediately
+        this.user = credential.user;
         await this.fetchProfile(this.user.uid);
       } catch (err: any) {
         this.error = mapAuthError(err.code);

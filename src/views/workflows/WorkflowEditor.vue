@@ -1,10 +1,10 @@
 <template>
   <div class="d-flex flex-column h-100 bg-background overflow-hidden position-relative">
     
-    <!-- TOP HEADER: Unified Navigation Bar -->
+    <!-- Navigation Bar -->
     <v-card class="flex-none bg-surface border-b d-flex align-center px-4 py-2" elevation="0" style="z-index: 10; height: 72px;">
       
-      <!-- LEFT: Back & Title -->
+      <!-- Back & Title -->
       <div class="d-flex align-center" style="min-width: 200px;">
          <v-btn 
             variant="text" 
@@ -26,7 +26,7 @@
 
       <v-spacer></v-spacer>
 
-      <!-- CENTER: Stepper -->
+      <!-- Stepper -->
       <div class="d-flex align-center justify-center">
          <div class="d-flex align-center gap-4">
             <template v-for="(step, i) in steps" :key="i">
@@ -58,7 +58,6 @@
 
       <v-spacer></v-spacer>
       
-      <!-- RIGHT: Placeholder to balance layout or actions -->
       <div style="min-width: 200px;"></div> 
 
     </v-card>
@@ -199,7 +198,7 @@ const selectedTargetColumn = ref<string | null>(null);
 const workflow = computed(() => workflowsStore.workflows.find(w => w.id === workflowId));
 const dataset = computed(() => datasetsStore.datasets.find(d => d.id === workflow.value?.datasetId));
 
-// --- VALIDATION ---
+// Validation
 const isStepValid = computed(() => {
   if (currentStep.value === 1) return !!selectedTargetColumn.value; // Must have target
   if (currentStep.value === 4) return !!config.value.model.algorithm; // Must have algo

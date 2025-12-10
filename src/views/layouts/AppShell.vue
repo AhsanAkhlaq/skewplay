@@ -266,7 +266,7 @@ onUnmounted(() => {
 <style scoped>
 .shell-wrapper {
   min-height: 100vh;
-  /* FIX: Explicitly force text color to match theme (White in Dark, Black in Light) */
+  /* Force text color to match theme */
   color: rgb(var(--v-theme-on-background));
   background-color: rgb(var(--v-theme-background)); 
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -293,9 +293,9 @@ onUnmounted(() => {
   backdrop-filter: blur(8px);
 }
 
-/* Search Bar Fix */
+/* Search Bar Override */
 :deep(.app-search .v-field__input) {
-    color: inherit !important; /* Inherit from theme */
+    color: inherit !important;
 }
 :deep(.v-main .v-container) {
   position: relative;

@@ -10,9 +10,17 @@
       </v-col>
     </v-row>
 
-    <v-row>
+    <!-- Loading State -->
+    <v-row v-if="store.isLoading">
+        <v-col cols="12" sm="6" md="4" xl="3" v-for="n in 3" :key="n">
+            <v-skeleton-loader class="rounded-lg border" type="image, article"></v-skeleton-loader>
+        </v-col>
+    </v-row>
+
+    <!-- Content State -->
+    <v-row v-else>
       <v-col 
-        v-for="tutorial in tutorials" 
+        v-for="tutorial in store.tutorials" 
         :key="tutorial.id" 
         cols="12" 
         sm="6" 
@@ -72,7 +80,7 @@
               block 
               prepend-icon="mdi-youtube"
             >
-              Watch Details
+              Watch Video
             </v-btn>
           </div>
         </v-card>
@@ -83,44 +91,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted } from 'vue';
+import { useTutorialsStore } from '../../stores/tutorials';
 
-interface Tutorial {
-  id: number;
-  videoId: string;
-  url: string;
-  title: string;
-  description: string;
-  duration: string;
-}
-
-// Placeholder Data - REPLACE WITH REAL DATA
-const tutorials = ref<Tutorial[]>([
-  {
-    id: 1,
-    videoId: '1Ic7GRtDrPM', // Rick Roll as temporary placeholder
-    url: 'https://www.youtube.com/watch?v=1Ic7GRtDrPM',
-    title: 'Getting Started with SkewPlay',
-    description: 'Learn the basics of uploading datasets, analyzing class imbalance, and understanding your data distribution.',
-    duration: '9:01'
-  },
-  {
-    id: 2,
-    videoId: 'yh2AKoJCV3k',
-    url: 'https://www.youtube.com/watch?v=yh2AKoJCV3k',
-    title: 'Advanced Resampling Techniques',
-    description: 'Deep dive into SMOTE, ADASYN, and NearMiss algorithms. When to use which and how to tune parameters.',
-    duration: '57:16'
-  },
-   {
-    id: 3,
-    videoId: 'Qkcce86nqFQ',
-    url: 'https://www.youtube.com/watch?v=Qkcce86nqFQ',
-    title: 'SMOTE and ADASYN',
-    description: 'Smote and ADASYN are two of the most popular resampling techniques. In this tutorial, we will learn how to use them and when to use which.',
-    duration: '6:30'
-  }
-]);
+const store = useTutorialsStore();
 
 const getThumbnail = (videoId: string) => {
   return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
@@ -129,6 +103,10 @@ const getThumbnail = (videoId: string) => {
 const openVideo = (url: string) => {
   window.open(url, '_blank');
 };
+
+onMounted(async () => {
+  await store.fetchTutorials();
+});
 </script>
 
 <style scoped>

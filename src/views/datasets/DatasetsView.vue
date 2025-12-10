@@ -347,23 +347,38 @@
               <!-- Distribution Graph -->
               <div v-if="previewDataset.type !== 'regression'" class="mb-2">
                   <div class="text-subtitle-1 font-weight-bold mb-3">Class Distribution</div>
-                  <div v-if="Object.keys(previewDataset.imbalanceRatios || {}).length > 0">
-                     <div v-for="(ratio, label, idx) in previewDataset.imbalanceRatios" :key="label" class="mb-3">
-                         <div class="d-flex justify-space-between text-caption mb-1">
-                            <span class="font-weight-medium">{{ label }}</span>
-                            <span>{{ (ratio * 100).toFixed(1) }}%</span>
-                         </div>
-                         <v-progress-linear
-                            :model-value="ratio * 100"
-                            :color="getBarColor(idx)"
-                            height="16"
-                            rounded
-                         >
-                            <template v-slot:default="{ value }">
-                                <span class="white--text text-caption px-1" style="font-size: 10px; color: white; mix-blend-mode: difference;">{{ Math.round(value) }}%</span>
-                            </template>
-                         </v-progress-linear>
-                     </div>
+                  <div v-if="Object.keys(previewDataset.imbalanceRatios || {}).length > 0" class="d-flex justify-center" style="height: 250px;">
+                      <Pie
+                          :data="{
+                              labels: Object.keys(previewDataset!.imbalanceRatios!).map(k => `${k} (${(previewDataset!.imbalanceRatios![k]! * 100).toFixed(1)}%)`),
+                              datasets: [{
+                                  data: Object.values(previewDataset!.imbalanceRatios!).map((v: any) => parseFloat((v * 100).toFixed(1))),
+                                  backgroundColor: Object.keys(previewDataset.imbalanceRatios).map((_, i) => getBarColor(i)),
+                                  borderColor: '#ffffff',
+                                  borderWidth: 2
+                              }]
+                          }"
+                          :options="{
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              plugins: {
+                                  legend: { 
+                                     position: 'right',
+                                     labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 } }
+                                  },
+                                  tooltip: {
+                                      callbacks: {
+                                          title: (tooltipItems: any) => {
+                                              const str = tooltipItems[0].label;
+                                              const idx = str.lastIndexOf(' (');
+                                              return idx !== -1 ? str.substring(0, idx) : str;
+                                          },
+                                          label: (context: any) => ` ${context.raw}%`
+                                      }
+                                  }
+                              }
+                          }"
+                      />
                   </div>
                   <div v-else class="text-center pa-4 text-medium-emphasis border border-dashed rounded">
                      No distribution data available.
@@ -472,7 +487,7 @@
           <v-card-text class="pa-0 bg-grey-lighten-5">
              <v-window v-model="detailsTab" class="h-100">
                 
-                <!-- 1. OVERVIEW TAB -->
+                <!-- Overview Tab -->
                 <v-window-item value="overview" class="pa-6">
                    <v-row>
                       <!-- Key Metrics Cards -->
@@ -538,7 +553,7 @@
                    </v-card>
                 </v-window-item>
 
-                <!-- 2. STATISTICS TAB -->
+                <!-- Statistics Tab -->
                 <v-window-item value="stats" class="pa-6">
                    <v-card flat border>
                       <v-data-table 
@@ -549,7 +564,7 @@
                    </v-card>
                 </v-window-item>
 
-                <!-- 3. PREVIEW TAB -->
+                <!-- Preview Tab -->
                 <v-window-item value="preview" class="pa-6">
                    <div class="text-subtitle-2 font-weight-bold mb-2">First 5 Rows (Head)</div>
                    <v-card flat border class="mb-6 overflow-auto">
@@ -617,7 +632,7 @@
                     <!-- MAIN CONTENT AREA -->
                     <div class="pa-6 mx-auto" style="max-width: 1400px; min-width: 0;">
                         
-                        <!-- 1. OVERVIEW -->
+                        <!-- Overview -->
                         <div v-if="edaTab === 'overview'">
                             <div class="d-flex justify-space-between align-center mb-6">
                                 <div>
@@ -665,7 +680,6 @@
                                     <v-icon start icon="mdi-table" size="small"></v-icon>
                                     Data Explorer
                                     <v-spacer></v-spacer>
-                                    <span class="text-caption text-medium-emphasis">Showing up to 5,000 rows</span>
                                 </v-card-title>
                                 <v-data-table
                                     :headers="Object.keys(analysisResults.sample[0] || {}).map(k => ({ title: k, key: k, sortable: true }))"
@@ -679,7 +693,7 @@
                             </v-card>
                         </div>
 
-                        <!-- 2. UNIVARIATE -->
+                        <!-- Univariate -->
                         <div v-if="edaTab === 'univariate'">
                             <div class="mb-6">
                                 <div class="text-h4 font-weight-bold bg-gradient-text mb-2">Features Distribution</div>
@@ -779,7 +793,7 @@
                             </v-row>
                         </div>
 
-                         <!-- 3. BIVARIATE (CORRELATION) -->
+                         <!-- Bivariate (Correlation) -->
                         <div v-if="edaTab === 'bivariate'">
                             <div class="mb-6">
                                 <div class="text-h4 font-weight-bold bg-gradient-text mb-2">Correlations</div>
@@ -931,7 +945,7 @@ import {
   LineElement,
   ArcElement
 } from 'chart.js'
-import { Bar } from 'vue-chartjs'
+import { Bar, Pie } from 'vue-chartjs'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, ArcElement)
 
@@ -1038,7 +1052,21 @@ const datasetToRename = ref<Dataset | null>(null);
 const changeTargetDialog = ref(false);
 const changeTargetValue = ref<string | null>(null);
 
-const colors = ['#00BFA5', '#5E35B1', '#FFC107', '#E53935'];
+const colors = [
+    '#00BFA5', // Teal
+    '#5E35B1', // Deep Purple
+    '#FFC107', // Amber
+    '#E53935', // Red
+    '#039BE5', // Light Blue
+    '#FB8C00', // Orange
+    '#43A047', // Green
+    '#D81B60', // Pink
+    '#3949AB', // Indigo
+    '#00ACC1', // Cyan
+    '#C0CA33', // Lime
+    '#6D4C41', // Brown
+    '#546E7A'  // Blue Grey
+];
 const getBarColor = (index: number) => colors[index % colors.length];
 
 // --- Helper Functions ---
