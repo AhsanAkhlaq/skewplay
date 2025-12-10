@@ -712,7 +712,7 @@
                                 </template>
                                 <div class="text-subtitle-1 font-weight-bold text-primary">Understanding Your Data's Shape</div>
                                 <div class="text-body-2 text-medium-emphasis mt-1">
-                                    • <b>Skewness</b>: Measures asymmetry. 0 = Symmetrical (Normal). > 0 = Right skewed. < 0 = Left skewed.
+                                    • <b>Skewness</b>: Measures asymmetry. Symmetrical (Normal) = 0. Right skewed > 0. Left skewed < 0.
                                     <br>
                                     • <b>Kurtosis</b>: Measures "tailedness". Higher values = more outliers (heavy tails).
                                 </div>

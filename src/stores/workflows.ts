@@ -25,14 +25,14 @@ export interface PipelineConfig {
     splitRatio: number;
   };
   imbalance: {
-    technique: 'SMOTE' | 'ADASYN' | 'RandomUnder' | 'TomekLinks' | 'None';
+    technique: 'SMOTE' | 'ADASYN' | 'RandomUnder' | 'None';
     params: {
       k_neighbors?: number;
       sampling_strategy?: number | string;
     };
   };
   model: {
-    algorithm: 'RandomForest' | 'XGBoost' | 'LogisticRegression' | 'SVM';
+    algorithm: 'RandomForest' | 'XGBoost' | 'LogisticRegression';
     hyperparameters: {
       n_estimators?: number;
       max_depth?: number;
