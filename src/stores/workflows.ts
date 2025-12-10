@@ -12,10 +12,10 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import axios from 'axios';
+import api from '../services/api';
 import { useDatasetsStore } from './datasets';
 
-const PYTHON_API_URL = 'http://localhost:8000';
+
 
 // --- 1. CONFIG INTERFACE ---
 export interface PipelineConfig {
@@ -71,6 +71,7 @@ export interface Workflow {
   };
   createdAt: any;
   updatedAt: any;
+  currentStep?: number;
 }
 
 export const useWorkflowsStore = defineStore('workflows', () => {
@@ -108,7 +109,8 @@ export const useWorkflowsStore = defineStore('workflows', () => {
           results: data.results,
           aiRecommendation: data.aiRecommendation,
           createdAt: data.createdAt,
-          updatedAt: data.updatedAt
+          updatedAt: data.updatedAt,
+          currentStep: data.currentStep // Added persistence mapping
         } as Workflow);
       });
 
@@ -138,7 +140,8 @@ export const useWorkflowsStore = defineStore('workflows', () => {
         config: initialConfig,
         artifacts: {},
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        currentStep: 1
       };
 
       const docRef = await addDoc(collection(db, 'workflows'), newWorkflow);
@@ -190,7 +193,7 @@ export const useWorkflowsStore = defineStore('workflows', () => {
       if (!workflow) throw new Error("Workflow not found"); // Should fetch if strictly not found? Assume loaded.
 
       const user = auth.currentUser;
-      if (!user) throw new Error("User?!");
+      if (!user) throw new Error("Authentication required");
 
       await updateWorkflow(workflowId, { status: 'Training' });
 
@@ -203,22 +206,6 @@ export const useWorkflowsStore = defineStore('workflows', () => {
       if (!dataset) throw new Error("Linked dataset not found.");
 
       // Get correct fileName (backend needs 'fileName' in Form, which might be Display Name OR Actual Name)
-      // Based on backend implementation:
-      // if sample, uses existing map. 
-      // if user, uses `{userId}/datasets/{fileName}`.
-      // In datasets.ts, `fileName` is often the display name. `storagePath` is full URL.
-      // But backend `upload` saves as `timestamp_filename`. 
-      // And backend `/reanalyze` uses `fileName` param against `datasets/` dir.
-      // BUT `upload` returned `fileName: file.filename` (original).
-      // This is a known ambiguity I noted earlier!
-
-      // Backend Logic for `/run`:
-      // if sample, reads `SAMPLES_DIR/fileName`.
-      // else reads `STORAGE_DIR/userId/datasets/fileName`.
-
-      // We need the *actual on-disk* filename.
-      // User uploaded file: `storagePath` = .../datasets/TIMESTAMP_NAME.
-      // So we should extract actual filename from `storagePath`.
       const parts = dataset.storagePath.split('/');
       const actualFileName = parts[parts.length - 1] || dataset.fileName;
 
@@ -228,8 +215,8 @@ export const useWorkflowsStore = defineStore('workflows', () => {
       formData.append('targetCol', dataset.targetColumn || 'target'); // Use dataset's target
       formData.append('config', JSON.stringify(workflow.config));
 
-      const response = await axios.post(`${PYTHON_API_URL}/run`, formData);
-      const result = response.data; // { status, results, artifacts }
+      // Use API Service
+      const result = await api.runWorkflow(formData);
 
       await updateWorkflow(workflowId, {
         status: 'Completed',
@@ -239,8 +226,14 @@ export const useWorkflowsStore = defineStore('workflows', () => {
 
     } catch (e: any) {
       console.error("Run error:", e);
-      error.value = e.message;
+      let errorMsg = e.message;
+      if (e.response && e.response.data && e.response.data.detail) {
+        errorMsg = e.response.data.detail;
+      }
+      error.value = errorMsg;
       await updateWorkflow(workflowId, { status: 'Failed' });
+      // We will rethrow or handle via UI store later
+      throw new Error(errorMsg);
     } finally {
       isLoading.value = false;
     }

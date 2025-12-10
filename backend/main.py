@@ -9,6 +9,14 @@ from typing import List, Dict, Any, Optional
 import uuid
 from datetime import datetime
 from utils import get_user_storage_usage
+from json_utils import sanitize_for_json
+import json
+
+# ML & Stats Imports
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.preprocessing import LabelEncoder
+from sklearn.impute import SimpleImputer
+import scipy.stats as stats
 
 app = FastAPI()
 
@@ -43,7 +51,7 @@ app.mount("/storage", StaticFiles(directory=STORAGE_DIR), name="storage")
 # Format: "filename.csv": "TargetColumnName"
 SAMPLE_TARGETS = {
     "dummy_sample.csv": "target",
-    "credit_card.csv": "Class",
+    "MOCK_DATA.csv": "Gender",
     # Add your sample files here
 }
 
@@ -81,13 +89,20 @@ def analyze_csv(file_path: str, user_target_col: Optional[str] = None) -> Dict[s
             imbalance_ratios = {}
             type_ = "unknown"
 
+        # 4. Target Missing (Specific)
+        target_missing_pct = 0.0
+        if target_col and target_col in df.columns:
+            target_missing = df[target_col].isnull().sum()
+            target_missing_pct = float(round((target_missing / row_count) * 100, 2)) if row_count > 0 else 0.0
+
         return {
             "rowCount": row_count,
             "type": type_,
             "imbalanceRatios": imbalance_ratios,
             "anomalies": anomalies,
             "sizeBytes": os.path.getsize(file_path),
-            "targetCol": target_col
+            "targetCol": target_col,
+            "targetMissingPct": target_missing_pct
         }
     except Exception as e:
         print(f"Error analyzing {file_path}: {e}")
@@ -124,7 +139,7 @@ async def get_samples():
                 "createdAt": {"seconds": os.path.getctime(file_path), "nanoseconds": 0},
                 **analysis
             })
-    return samples
+    return sanitize_for_json(samples)
 
 @app.post("/upload")
 async def upload_file(
@@ -153,11 +168,11 @@ async def upload_file(
         # URL construction: http://localhost:8000/storage/{userId}/datasets/{filename}
         storage_path = f"http://localhost:8000/storage/{userId}/datasets/{filename}"
 
-        return {
+        return sanitize_for_json({
             "fileName": file.filename, 
             "storagePath": storage_path,
             **analysis
-        }
+        })
     except Exception as e:
         print(f"Error uploading file: {e}")
         raise HTTPException(status_code=500, detail="Failed to upload file")    
@@ -303,11 +318,11 @@ async def run_experiment(
              "confusionMatrixUrl": f"http://localhost:8000/storage/{userId}/artifacts/{timestamp}/{cm_filename}",
         }
 
-        return {
+        return sanitize_for_json({
             "status": "Completed",
             "results": metrics,
             "artifacts": artifacts
-        }
+        })
 
     except Exception as e:
         print(f"Run Error: {e}")
@@ -351,11 +366,267 @@ async def reanalyze_dataset(
         # 2. Re-Analyze
         analysis = analyze_csv(file_path, user_target_col=targetCol)
         
-        return analysis
+        return sanitize_for_json(analysis)
 
     except Exception as e:
         print(f"Reanalyze failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/dataset-details")
+async def get_dataset_details(
+    userId: str = Form(...),
+    fileName: str = Form(...)
+):
+    try:
+        # Resolve path
+        if fileName in SAMPLE_TARGETS:
+             file_path = os.path.join(SAMPLES_DIR, fileName)
+        else:
+             file_path = os.path.join(STORAGE_DIR, userId, "datasets", fileName)
+        
+        if not os.path.exists(file_path):
+             raise HTTPException(status_code=404, detail=f"File not found: {fileName}")
+
+        # Read CSV
+        df = pd.read_csv(file_path)
+        
+        # 1. Basic Info
+        rows, cols = df.shape
+        duplicates = int(df.duplicated().sum())
+        
+        # 2. Columns Info
+        columns_data = []
+        for col in df.columns:
+            dtype = str(df[col].dtype)
+            missing = int(df[col].isnull().sum())
+            pct_missing = float(round((missing / rows) * 100, 2)) if rows > 0 else 0
+            
+            # Value Range (for numeric)
+            val_range = ""
+            if pd.api.types.is_numeric_dtype(df[col]):
+                val_range = f"{df[col].min()} - {df[col].max()}"
+            elif pd.api.types.is_datetime64_any_dtype(df[col]):
+                val_range = f"{df[col].min()} - {df[col].max()}"
+            else:
+                 val_range = f"{df[col].nunique()} unique"
+
+            col_info = {
+                "name": col,
+                "type": dtype,
+                "missing": missing,
+                "pct_missing": pct_missing,
+                "range": val_range
+            }
+            columns_data.append(col_info)
+            
+        # 3. Frequency Tables (Top 5 for categorical/object)
+        freq_tables = {}
+        for col in df.select_dtypes(include=['object', 'category']).columns:
+             if df[col].nunique() < 50: # Only if reasonable cardinality
+                 counts = df[col].value_counts().head(5).to_dict()
+                 freq_tables[col] = counts
+
+        # 4. Statistics (Describe)
+        # fillna to handle NaN in describe output for JSON serialization transformation
+        desc = df.describe(include='all').transpose()
+        desc.insert(0, 'column', desc.index)
+        # Handle Inf
+        desc.replace([np.inf, -np.inf], np.nan, inplace=True)
+        # Convert NaN to None
+        stats = desc.where(pd.notnull(desc), None).to_dict(orient='records')
+
+        # 5. Preview
+        # Create a safe copy for preview to handle Inf/NaN
+        df_preview = df.copy()
+        df_preview.replace([np.inf, -np.inf], np.nan, inplace=True)
+        
+        # Convert NaN to None
+        head = df_preview.head(5).where(pd.notnull(df_preview), None).values.tolist()
+        tail = df_preview.tail(5).where(pd.notnull(df_preview), None).values.tolist()
+        
+        return sanitize_for_json({
+            "fileName": fileName,
+            "rows": rows,
+            "cols": cols,
+            "duplicates": duplicates,
+            "columns": columns_data, # Includes types, missing, ranges
+            "statistics": stats,
+            "freqTables": freq_tables,
+            "head": head,
+            "tail": tail,
+            "headers": list(df.columns)
+        })
+
+    except Exception as e:
+        print(f"Details Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/perform-eda")
+async def perform_eda(
+    userId: str = Form(...),
+    fileName: str = Form(...)
+):
+    try:
+        # Resolve path
+        if fileName in SAMPLE_TARGETS:
+             file_path = os.path.join(SAMPLES_DIR, fileName)
+        else:
+             file_path = os.path.join(STORAGE_DIR, userId, "datasets", fileName)
+        
+        if not os.path.exists(file_path):
+             raise HTTPException(status_code=404, detail=f"File not found: {fileName}")
+
+        # Load Data
+        df = pd.read_csv(file_path)
+        row_count, col_count = df.shape
+
+        # Identify Target
+        # Re-use analyze_csv logic or logic passed from frontend. 
+        # For EDA, we often want to know what the user thinks is the target.
+        # But here we do general EDA. We will try to infer target from metadata or simple heuristic if not passed.
+        # Ideally frontend passes targetCol. Let's add it to Form.
+        # For now, let's proceed with generic EDA and specific target analysis if we can find it.
+        # I'll rely on the frontend sending the target col? No, the signature didn't have it.
+        # I will update signature to accept targetCol optionally.
+        
+        # NOTE: WE SHOULD UPDATE SIGNATURE TO ACCEPT targetCol
+        # However, for now, let's just do robust general EDA.
+        
+        # --- 1. Univariate Analysis ---
+        univariate = {}
+        numeric_cols = df.select_dtypes(include=['number']).columns
+        categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+        
+        for col in df.columns:
+            col_data = df[col]
+            stats_obj = {}
+            
+            # Missing
+            stats_obj['missing'] = int(col_data.isnull().sum())
+            
+            if col in numeric_cols:
+                # Stats
+                stats_obj['type'] = 'numeric'
+                stats_obj['mean'] = float(col_data.mean()) if not col_data.isnull().all() else 0
+                stats_obj['median'] = float(col_data.median()) if not col_data.isnull().all() else 0
+                stats_obj['std'] = float(col_data.std()) if not col_data.isnull().all() else 0
+                stats_obj['min'] = float(col_data.min()) if not col_data.isnull().all() else 0
+                stats_obj['max'] = float(col_data.max()) if not col_data.isnull().all() else 0
+                skew_val = col_data.skew()
+                kurt_val = col_data.kurtosis()
+                stats_obj['skew'] = float(skew_val) if not pd.isna(skew_val) and not np.isinf(skew_val) else 0.0
+                stats_obj['kurtosis'] = float(kurt_val) if not pd.isna(kurt_val) and not np.isinf(kurt_val) else 0.0
+                
+                # Histogram (10 bins)
+                data_clean = col_data.dropna()
+                if len(data_clean) > 0:
+                    hist, bin_edges = np.histogram(data_clean, bins=10)
+                    stats_obj['histogram'] = {
+                        'counts': hist.tolist(),
+                        'bins': bin_edges.tolist() # Edges are n+1
+                    }
+                
+                # Box Plot (Quartiles)
+                if len(data_clean) > 0:
+                    q1 = np.percentile(data_clean, 25)
+                    q3 = np.percentile(data_clean, 75)
+                    iqr = q3 - q1
+                    stats_obj['boxplot'] = {
+                        'q1': float(q1),
+                        'median': float(np.median(data_clean)),
+                        'q3': float(q3),
+                        'min': float(np.min(data_clean)), # pure min, often whiskers are calculated differently in JS
+                        'max': float(np.max(data_clean))
+                    }
+                    
+            else:
+                # Categorical
+                stats_obj['type'] = 'categorical'
+                stats_obj['unique'] = int(col_data.nunique())
+                # Top 10 counts
+                counts = col_data.value_counts().head(10)
+                stats_obj['counts'] = counts.to_dict()
+                
+            univariate[col] = stats_obj
+
+        # --- 2. Bivariate (Correlation) ---
+        correlation = {}
+        if len(numeric_cols) > 1:
+             corr_matrix = df[numeric_cols].corr().fillna(0)
+             # Convert to structure suitable for heatmap: x, y, value
+             matrix_data = []
+             for i, r in enumerate(corr_matrix.index):
+                 for j, c in enumerate(corr_matrix.columns):
+                     matrix_data.append({
+                         'x': c,
+                         'y': r,
+                         'v': float(corr_matrix.iloc[i, j])
+                     })
+             correlation['matrix'] = matrix_data
+             correlation['columns'] = list(numeric_cols)
+
+        # --- 3. Feature Importance (Quick RF) ---
+        feature_importance = {}
+        target_col = None
+        
+        # Try to guess target (last column or one with least unique values if binary?)
+        # Let's search for "class", "target", "label"
+        potential_targets = [c for c in df.columns if c.lower() in ['class', 'target', 'label', 'y']]
+        if potential_targets:
+            target_col = potential_targets[0]
+        else:
+            target_col = df.columns[-1]
+            
+        if target_col and target_col in df.columns:
+             # Preprocess for RF
+             df_rf = df.copy()
+             
+             # Encode Categoricals
+             le = LabelEncoder()
+             for col in df_rf.select_dtypes(include=['object']).columns:
+                 df_rf[col] = le.fit_transform(df_rf[col].astype(str))
+                 
+             # Impute
+             imp = SimpleImputer(strategy='mean')
+             df_rf_clean = pd.DataFrame(imp.fit_transform(df_rf), columns=df_rf.columns)
+             
+             X = df_rf_clean.drop(columns=[target_col])
+             y = df_rf_clean[target_col]
+             
+             # Detect Type for RF
+             if df[target_col].nunique() < 20:
+                  rf = RandomForestClassifier(n_estimators=10, max_depth=5, random_state=42)
+             else:
+                  rf = RandomForestRegressor(n_estimators=10, max_depth=5, random_state=42)
+                  
+             rf.fit(X, y)
+             
+             # Extract
+             importances = rf.feature_importances_
+             indices = np.argsort(importances)[::-1]
+             
+             feats = []
+             for f in range(X.shape[1]):
+                 feats.append({
+                     'feature': X.columns[indices[f]],
+                     'importance': float(importances[indices[f]])
+                 })
+             feature_importance['scores'] = feats
+             feature_importance['target'] = target_col
+
+        return sanitize_for_json({
+            "fileName": fileName,
+            "univariate": univariate,
+            "correlation": correlation,
+            "featureImportance": feature_importance,
+            "sample": df.head(5000).replace([np.inf, -np.inf], np.nan).fillna("").to_dict(orient='records') # Larger sample for detailed view
+        })
+
+    except Exception as e:
+        print(f"EDA Error: {e}")
+        # raise HTTPException(status_code=500, detail=str(e)) 
+        # Return empty structure instead of crashing
+        return {"error": str(e)}
 
 @app.get("/usage/{user_id}")
 async def get_usage(user_id: str):

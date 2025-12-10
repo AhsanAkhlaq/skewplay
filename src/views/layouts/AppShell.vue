@@ -2,12 +2,12 @@
   <v-layout class="shell-wrapper">
     
     <!-- 1. HEADER (Gmail Style: Full width, sits above drawer or clipped) -->
-    <v-app-bar color="transparent" elevation="0" height="64" class="px-2 backdrop-blur " >
+    <v-app-bar color="transparent" elevation="0" height="56" class="px-2 backdrop-blur " >
       <!-- MAIN NAVIGATION TOGGLE & BRANDING -->
       <div class="d-flex align-center" style="min-width: 250px;">
         <!-- Toggle Button: Toggles Rail on Desktop, Drawer on Mobile -->
         <v-app-bar-nav-icon 
-            :color="isDark ? 'white' : 'black'" 
+            color="black" 
             @click="toggleDrawer"
             class="me-2"
         ></v-app-bar-nav-icon>
@@ -18,7 +18,7 @@
                 <v-img src="/images/logo.ico" alt="Logo" width="36" height="36"></v-img>
             </v-avatar>
             <div>
-                <div class="text-h6 font-weight-bold" :class="isDark ? 'text-white' : 'text-black'" style="line-height: 1.1; letter-spacing: -0.5px;">SkewPlay</div>
+                <div class="text-h6 font-weight-bold text-black" style="line-height: 1.1; letter-spacing: -0.5px;">SkewPlay</div>
             </div>
         </div>
       </div>
@@ -38,10 +38,6 @@
         >
           {{ tierLabel }} Tier
         </v-chip>
-
-        <v-btn icon size="small" @click="toggleTheme" color="grey-lighten-1">
-          <v-icon>{{ isDark ? 'mdi-weather-sunny' : 'mdi-weather-night' }}</v-icon>
-        </v-btn>
 
         <v-menu location="bottom end" transition="slide-y-transition" offset="10">
           <template v-slot:activator="{ props }">
@@ -75,7 +71,7 @@
       :temporary="!mdAndUp"
       class="bg-glass-nav border-none"
       elevation="0"
-      :width="260"
+      :width="250"
     >
       <!-- Top spacing to clear app-bar if not clipped, or just padding -->
       <div class="pt-2"></div>
@@ -101,8 +97,6 @@
 
     <!-- 3. MAIN CONTENT -->
     <v-main>
-      <div class="bg-gradient-fixed" :style="{ opacity: isDark ? 1 : 0 }"></div>
-      
       <v-container class="py-6 px-4 px-md-8 h-100" fluid>
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
@@ -116,21 +110,68 @@
        <span>© {{ new Date().getFullYear() }} <i>Skew</i>Play</span>
     </v-footer>
 
+    <v-dialog v-model="uiStore.confirmDialog.show" max-width="400" persistent>
+        <v-card rounded="xl" class="pa-4 glass-card">
+            <v-card-title class="text-h6 font-weight-bold">{{ uiStore.confirmDialog.title }}</v-card-title>
+            <v-card-text class="text-body-2 text-medium-emphasis">
+                {{ uiStore.confirmDialog.message }}
+            </v-card-text>
+            <v-card-actions class="justify-end pt-4">
+                <v-btn 
+                    variant="text" 
+                    color="grey" 
+                    rounded="lg"
+                    @click="uiStore.resolveConfirm(false)"
+                >
+                    Cancel
+                </v-btn>
+                <v-btn 
+                    color="primary" 
+                    variant="flat" 
+                    rounded="lg"
+                    @click="uiStore.resolveConfirm(true)"
+                >
+                    Confirm
+                </v-btn>
+            </v-card-actions>
+        </v-card>
+    </v-dialog>
+
+    <v-snackbar
+      v-model="uiStore.snackbar.show"
+      :color="uiStore.snackbar.color"
+      :timeout="uiStore.snackbar.timeout"
+      location="top center"
+      variant="tonal"
+    >
+      {{ uiStore.snackbar.message }}
+      
+      <template v-slot:actions>
+        <v-btn
+          color="white"
+          variant="text"
+          @click="uiStore.snackbar.show = false"
+          icon="mdi-close"
+          size="small"
+        >
+        </v-btn>
+      </template>
+    </v-snackbar>
   </v-layout>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useDisplay, useTheme } from 'vuetify';
+import { useDisplay } from 'vuetify';
 import { useAuthStore } from '../../stores/auth';
 import { useDatasetsStore } from '../../stores/datasets';
 import { useWorkflowsStore } from '../../stores/workflows';
-
+import { useUiStore } from '../../stores/ui';
 const authStore = useAuthStore();
 const datasetsStore = useDatasetsStore();
 const workflowsStore = useWorkflowsStore();
-const theme = useTheme();
+const uiStore = useUiStore();
 const router = useRouter();
 const { mdAndUp } = useDisplay();
 
@@ -159,18 +200,10 @@ const initials = computed(() => {
   return name.substring(0, 2).toUpperCase();
 });
 
-const isDark = computed(() => theme.global.current.value.dark);
-
 const tierLabel = computed(() => {
   const tier = authStore.profile?.tier ?? 'basic';
   return tier.charAt(0).toUpperCase() + tier.slice(1);
 });
-
-const toggleTheme = () => {
-  const newTheme = isDark.value ? 'skewPlayTheme' : 'skewPlayDarkTheme';
-  theme.global.name.value = newTheme;
-  localStorage.setItem('user-theme', newTheme);
-};
 
 const INACTIVITY_LIMIT = 30 * 60 * 1000; 
 let inactivityTimer: any = null;
@@ -237,19 +270,6 @@ onUnmounted(() => {
   color: rgb(var(--v-theme-on-background));
   background-color: rgb(var(--v-theme-background)); 
   transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/* FIX: Removed the broken .v-theme--... selectors. Using inline style binding instead */
-.bg-gradient-fixed {
-  position: fixed;
-  inset: 0;
-  background: 
-    radial-gradient(circle at 15% 15%, rgba(94, 53, 177, 0.12), transparent 40%),
-    radial-gradient(circle at 85% 10%, rgba(34, 211, 238, 0.08), transparent 40%),
-    linear-gradient(180deg, #0F172A 0%, #0b1121 100%);
-  z-index: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
 }
 
 .bg-glass-nav {

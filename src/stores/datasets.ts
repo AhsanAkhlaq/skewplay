@@ -35,6 +35,7 @@ export interface Dataset {
 
   imbalanceRatios: Record<string, number>;
   anomalies: string[];
+  targetMissingPct?: number;
 
   createdAt: any;
   isPublic?: boolean;
@@ -147,6 +148,7 @@ export const useDatasetsStore = defineStore('datasets', () => {
         targetColumn: analysisData.targetCol || 'Unknown',
         imbalanceRatios: analysisData.imbalanceRatios || {},
         anomalies: analysisData.anomalies || [],
+        targetMissingPct: analysisData.targetMissingPct || 0,
 
         createdAt: serverTimestamp(),
       };
@@ -244,7 +246,48 @@ export const useDatasetsStore = defineStore('datasets', () => {
     }
   };
 
-  // Removed unused storagePath Param from signature
+  const fetchDatasetDetails = async (id: string) => {
+    try {
+      const dataset = datasets.value.find(d => d.id === id);
+      if (!dataset) throw new Error("Dataset not found");
+
+      // Extract actual filename from storagePath if possible, or use logic consistent with backend
+      // Backend expects the on-disk filename.
+      // If sample, filename is just the name. 
+      // If user file, it is in the URL: .../datasets/{TIMESTAMP_NAME}
+
+      let actualFileName = dataset.fileName;
+      if (dataset.storagePath.startsWith('http')) {
+        const parts = dataset.storagePath.split('/');
+        actualFileName = parts[parts.length - 1] || actualFileName; // Extracts the last segment
+      }
+
+      const formData = new FormData();
+      formData.append('userId', authStore.user?.uid || 'system');
+      formData.append('fileName', actualFileName || '');
+
+      const response = await axios.post(`${PYTHON_API_URL}/dataset-details`, formData);
+      return response.data;
+    } catch (e: any) {
+      console.error("Details fetch error:", e);
+      throw e;
+    }
+  };
+
+  const fetchEDA = async (_id: string, fileName: string) => {
+    const formData = new FormData();
+    formData.append('userId', authStore.user?.uid || 'system');
+    formData.append('fileName', fileName);
+
+    try {
+      const response = await axios.post(`${PYTHON_API_URL}/perform-eda`, formData);
+      return response.data;
+    } catch (e: any) {
+      console.error("EDA Fetch Error:", e);
+      throw e;
+    }
+  };
+
   const deleteDataset = async (id: string) => {
     try {
       const dataset = datasets.value.find(d => d.id === id);
@@ -285,6 +328,8 @@ export const useDatasetsStore = defineStore('datasets', () => {
     updateDataset,
     reanalyzeDataset,
     deleteDataset,
-    totalUserUsageBytes
+    totalUserUsageBytes,
+    fetchDatasetDetails,
+    fetchEDA
   };
 });

@@ -69,13 +69,6 @@ body {
   transition: background-color 0.3s ease;
 }
 
-/* Dark mode gets slightly stronger glow for visibility */
-.v-theme--skewPlayDarkTheme .skew-bg {
-  background-image:
-    radial-gradient(circle at 15% 0%, rgba(var(--v-theme-primary), 0.12) 0%, transparent 50%),
-    radial-gradient(circle at 85% 100%, rgba(var(--v-theme-accent), 0.12) 0%, transparent 50%);
-}
-
 /* 2. GLASSMORPHISM CARDS 
    Refined borders and blurs.
 */
@@ -83,6 +76,7 @@ body {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   /* Softer shadow */
   transition: all 0.3s ease;
 }
@@ -91,33 +85,13 @@ body {
 .v-theme--skewPlayTheme .glass-card {
   background: rgba(255, 255, 255, 0.8) !important;
   /* Higher opacity for readability */
-  border: 1px solid rgba(255, 255, 255, 0.6) !important;
-  color: rgb(var(--v-theme-on-surface));
-}
-
-/* Dark Theme Glass - Deep & Neutral (Zinc Style) */
-.v-theme--skewPlayDarkTheme .glass-card {
-  /* Using Zinc-900 like tone instead of blue-slate */
-  background: rgba(24, 24, 27, 0.7) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
   color: rgb(var(--v-theme-on-surface));
 }
 
 /* 3. AUTOFILL FIXES 
    Updated to match new text colors 
 */
-
-/* Dark Mode Autofill */
-.v-theme--skewPlayDarkTheme .autofill-dark input:-webkit-autofill,
-.v-theme--skewPlayDarkTheme .autofill-dark input:-webkit-autofill:hover,
-.v-theme--skewPlayDarkTheme .autofill-dark input:-webkit-autofill:focus,
-.v-theme--skewPlayDarkTheme .autofill-dark input:-webkit-autofill:active {
-  transition: background-color 9999s ease-in-out 0s;
-  -webkit-text-fill-color: rgb(var(--v-theme-on-surface)) !important;
-  caret-color: rgb(var(--v-theme-on-surface)) !important;
-  /* Matches the Zinc dark card color */
-  box-shadow: 0 0 0 30px rgba(24, 24, 27, 0.9) inset !important;
-}
 
 /* Light Mode Autofill */
 .v-theme--skewPlayTheme .autofill-dark input:-webkit-autofill,
@@ -128,4 +102,20 @@ body {
   -webkit-text-fill-color: rgb(var(--v-theme-on-surface)) !important;
   caret-color: rgb(var(--v-theme-on-surface)) !important;
   box-shadow: 0 0 0 30px rgba(255, 255, 255, 0.9) inset !important;
+}
+
+/* 4. VIBRANT GRADIENT TEXT */
+.bg-gradient-text {
+  background: linear-gradient(45deg, rgb(var(--v-theme-primary)), rgb(var(--v-theme-secondary, var(--v-theme-primary))));
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  display: inline-block;
+  width: fit-content;
+}
+
+/* Fallback for deep purple accent themes if accent var is not set */
+.v-theme--skewPlayTheme .bg-gradient-text {
+  background: linear-gradient(135deg, #6200EA 0%, #D500F9 100%);
 }

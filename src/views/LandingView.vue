@@ -12,7 +12,7 @@
             size="small"
             style="border-width: 2px;"
           >
-            SKEWPLAY · NO-CODE ML LAB
+            SKEWPLAY · NO-CODE ML PLATFORM
           </v-chip>
 
           <h1 class="text-h3 text-md-h2 font-weight-bold mb-6 text-on-background lh-tight">

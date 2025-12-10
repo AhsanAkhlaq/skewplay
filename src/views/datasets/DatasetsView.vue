@@ -44,8 +44,6 @@
               class="d-none"
               @update:model-value="handleFileSelect"
             ></v-file-input>
-
-            <v-chip size="small" color="medium-emphasis" variant="outlined">Max 1GB (Basic)</v-chip>
           </div>
 
           <div v-if="datasetsStore.isLoading">
@@ -72,9 +70,16 @@
 
       <v-col cols="12" lg="8">
         
-        <div v-if="isLoadingInit" class="text-center mt-12">
-          <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-          <div class="mt-4 text-medium-emphasis">Loading your library...</div>
+        <div v-if="isLoadingInit" class="mt-8">
+           <v-row>
+             <v-col v-for="n in 4" :key="n" cols="12" md="6">
+               <v-skeleton-loader 
+                 class="rounded-xl border" 
+                 type="list-item-avatar-three-line, actions"
+                 height="200"
+               ></v-skeleton-loader>
+             </v-col>
+           </v-row>
         </div>
 
         <div v-else-if="datasetsStore.datasets.length === 0" class="text-center mt-12">
@@ -230,8 +235,30 @@
                        {{ anomaly }}
                     </v-chip>
                  </div>
-
-              </div>
+                 </div>
+                 
+                 <div class="d-flex ga-2 mt-4 pt-4 border-t">
+                    <v-btn
+                        variant="tonal"
+                        color="secondary"
+                        class="flex-grow-1"
+                        size="small"
+                        prepend-icon="mdi-information-outline"
+                        @click.stop="openDetails(dataset)"
+                    >
+                        Show Details
+                    </v-btn>
+                    <v-btn
+                        variant="flat"
+                        color="primary"
+                        class="flex-grow-1"
+                        size="small"
+                        prepend-icon="mdi-flask"
+                        @click.stop="analyzeData(dataset)"
+                    >
+                        Analyze Data
+                    </v-btn>
+                 </div>
             </v-card>
           </v-col>
         </v-row>
@@ -247,7 +274,7 @@
     <v-dialog v-model="previewDialog" max-width="800" persistent>
       <v-card class="rounded-xl">
         <v-card-title class="d-flex justify-space-between align-center pa-4 border-b">
-          <span class="text-h6 font-weight-bold">Data Preview & Config</span>
+          <span class="text-h6 font-weight-bold">Preview</span>
           <v-btn icon="mdi-close" variant="text" size="small" @click="cancelPreview"></v-btn>
         </v-card-title>
 
@@ -274,16 +301,78 @@
               ></v-select>
           </div>
 
-          <div class="mb-4 d-flex justify-space-between align-center">
-             <div>
-                <div class="text-subtitle-1 font-weight-bold">{{ previewFile?.name || previewDataset?.fileName }}</div>
-                <div class="text-caption text-medium-emphasis">
-                {{ formatSize(previewFile?.size || previewDataset?.sizeBytes) }} • {{ previewRows.length }} rows previewed
-                </div>
-             </div>
+          
+          <!-- EXISTING DATASET: TARGET ANALYSIS -->
+          <div v-if="previewDataset">
+              <!-- Header -->
+              <div class="d-flex align-center justify-space-between mb-6 border-b pb-4">
+                  <div>
+                      <div class="text-caption text-medium-emphasis text-uppercase font-weight-bold">Target Variable</div>
+                      <div class="text-h5 font-weight-bold text-primary">{{ previewDataset.targetColumn }}</div>
+                  </div>
+                  <div class="text-end">
+                     <v-chip 
+                        :color="previewDataset.type === 'regression' ? 'purple' : 'info'" 
+                        label 
+                        class="d-block text-center mb-1"
+                     >
+                        {{ previewDataset.type === 'regression' ? 'Numerical' : 'Categorical' }}
+                     </v-chip>
+                     <div class="text-caption text-medium-emphasis">
+                       {{ previewDataset.type === 'regression' ? 'Continuous Scale' : (previewDataset.type === 'binary' ? 'Binary Class' : 'Multi-Class') }} 
+                     </div>
+                  </div>
+              </div>
+
+              <!-- Missing Values -->
+               <div class="mb-6 bg-grey-lighten-5 pa-4 rounded-lg border">
+                  <div class="d-flex justify-space-between text-body-2 font-weight-bold mb-2">
+                     <span>Missing Values in Target</span>
+                     <span :class="(previewDataset.targetMissingPct || 0) > 0 ? 'text-error' : 'text-success'">
+                        {{ previewDataset.targetMissingPct ?? 'N/A' }}%
+                     </span>
+                  </div>
+                  <v-progress-linear 
+                     :model-value="previewDataset.targetMissingPct || 0" 
+                     :color="(previewDataset.targetMissingPct || 0) > 0 ? 'error' : 'success'"
+                     height="10"
+                     rounded
+                     striped
+                  ></v-progress-linear>
+                  <div class="text-caption text-medium-emphasis mt-2" v-if="(previewDataset.targetMissingPct || 0) > 0">
+                    High missing values in the target column can significantly impact model performance.
+                  </div>
+               </div>
+
+              <!-- Distribution Graph -->
+              <div v-if="previewDataset.type !== 'regression'" class="mb-2">
+                  <div class="text-subtitle-1 font-weight-bold mb-3">Class Distribution</div>
+                  <div v-if="Object.keys(previewDataset.imbalanceRatios || {}).length > 0">
+                     <div v-for="(ratio, label, idx) in previewDataset.imbalanceRatios" :key="label" class="mb-3">
+                         <div class="d-flex justify-space-between text-caption mb-1">
+                            <span class="font-weight-medium">{{ label }}</span>
+                            <span>{{ (ratio * 100).toFixed(1) }}%</span>
+                         </div>
+                         <v-progress-linear
+                            :model-value="ratio * 100"
+                            :color="getBarColor(idx)"
+                            height="16"
+                            rounded
+                         >
+                            <template v-slot:default="{ value }">
+                                <span class="white--text text-caption px-1" style="font-size: 10px; color: white; mix-blend-mode: difference;">{{ Math.round(value) }}%</span>
+                            </template>
+                         </v-progress-linear>
+                     </div>
+                  </div>
+                  <div v-else class="text-center pa-4 text-medium-emphasis border border-dashed rounded">
+                     No distribution data available.
+                  </div>
+              </div>
           </div>
 
-          <v-table density="compact" class="border rounded-lg">
+          <!-- UPLOAD PREVIEW: TABLE -->
+          <v-table v-else density="compact" class="border rounded-lg">
             <thead>
               <tr>
                 <th v-for="header in previewHeaders" :key="header" class="text-left font-weight-bold">
@@ -362,24 +451,573 @@
         </v-card>
     </v-dialog>
 
+    <!-- DATASET DETAILS DIALOG -->
+    <v-dialog v-model="detailsDialog" max-width="900" scrollable>
+       <v-card class="rounded-xl h-100" v-if="detailsData">
+          <v-toolbar color="transparent" class="border-b pl-2">
+             <v-toolbar-title class="text-h6 font-weight-bold">
+                {{ detailsData.fileName }} 
+                <span class="text-caption text-medium-emphasis ms-2">Dataset Analysis</span>
+             </v-toolbar-title>
+             <v-spacer></v-spacer>
+             <v-btn icon="mdi-close" variant="text" @click="detailsDialog = false"></v-btn>
+          </v-toolbar>
+
+          <v-tabs v-model="detailsTab" color="primary" align-tabs="start">
+             <v-tab value="overview">Overview</v-tab>
+             <v-tab value="stats">Statistics</v-tab>
+             <v-tab value="preview">Data Preview</v-tab>
+          </v-tabs>
+
+          <v-card-text class="pa-0 bg-grey-lighten-5">
+             <v-window v-model="detailsTab" class="h-100">
+                
+                <!-- 1. OVERVIEW TAB -->
+                <v-window-item value="overview" class="pa-6">
+                   <v-row>
+                      <!-- Key Metrics Cards -->
+                      <v-col cols="6" md="3">
+                         <v-card class="pa-4 text-center" flat border>
+                            <div class="text-h4 font-weight-bold text-primary">{{ detailsData.rows }}</div>
+                            <div class="text-caption text-medium-emphasis text-uppercase">Rows</div>
+                         </v-card>
+                      </v-col>
+                      <v-col cols="6" md="3">
+                         <v-card class="pa-4 text-center" flat border>
+                            <div class="text-h4 font-weight-bold text-secondary">{{ detailsData.cols }}</div>
+                            <div class="text-caption text-medium-emphasis text-uppercase">Columns</div>
+                         </v-card>
+                      </v-col>
+                      <v-col cols="6" md="3">
+                         <v-card class="pa-4 text-center" flat border>
+                            <div class="text-h4 font-weight-bold" :class="detailsData.duplicates > 0 ? 'text-warning' : 'text-success'">
+                                {{ detailsData.duplicates }}
+                            </div>
+                            <div class="text-caption text-medium-emphasis text-uppercase">Duplicates</div>
+                         </v-card>
+                      </v-col>
+                      <v-col cols="6" md="3">
+                         <v-card class="pa-4 text-center" flat border>
+                            <div class="text-h4 font-weight-bold text-info">{{ detailsData.columns.length }}</div>
+                            <div class="text-caption text-medium-emphasis text-uppercase">Features</div>
+                         </v-card>
+                      </v-col>
+                   </v-row>
+
+                   <!-- Columns Table -->
+                   <v-card class="mt-6 border" flat title="Column Profile">
+                      <v-table density="compact">
+                         <thead>
+                            <tr>
+                               <th>Column</th>
+                               <th>Type</th>
+                               <th>Missing</th>
+                               <th>% Null</th>
+                               <th>Range / Unique</th>
+                            </tr>
+                         </thead>
+                         <tbody>
+                            <tr v-for="col in detailsData.columns" :key="col.name">
+                               <td class="font-weight-bold">{{ col.name }}</td>
+                               <td><v-chip size="x-small" label>{{ col.type }}</v-chip></td>
+                               <td :class="col.missing > 0 ? 'text-error font-weight-bold' : 'text-medium-emphasis'">{{ col.missing }}</td>
+                               <td>
+                                  <v-progress-linear 
+                                    :model-value="col.pct_missing" 
+                                    :color="col.pct_missing > 0 ? 'error' : 'success'" 
+                                    height="6" 
+                                    rounded
+                                    style="width: 60px;"
+                                  ></v-progress-linear>
+                                  <span class="text-caption ms-2">{{ col.pct_missing }}%</span>
+                               </td>
+                               <td class="text-caption">{{ col.range }}</td>
+                            </tr>
+                         </tbody>
+                      </v-table>
+                   </v-card>
+                </v-window-item>
+
+                <!-- 2. STATISTICS TAB -->
+                <v-window-item value="stats" class="pa-6">
+                   <v-card flat border>
+                      <v-data-table 
+                         :items="detailsData.statistics" 
+                         density="compact"
+                         class="text-caption"
+                      ></v-data-table>
+                   </v-card>
+                </v-window-item>
+
+                <!-- 3. PREVIEW TAB -->
+                <v-window-item value="preview" class="pa-6">
+                   <div class="text-subtitle-2 font-weight-bold mb-2">First 5 Rows (Head)</div>
+                   <v-card flat border class="mb-6 overflow-auto">
+                      <v-table density="compact">
+                         <thead>
+                            <tr><th v-for="h in detailsData.headers" :key="h">{{ h }}</th></tr>
+                         </thead>
+                         <tbody>
+                            <tr v-for="(row, i) in detailsData.head" :key="i">
+                               <td v-for="(cell, j) in row" :key="j">{{ cell }}</td>
+                            </tr>
+                         </tbody>
+                      </v-table>
+                   </v-card>
+
+                   <div class="text-subtitle-2 font-weight-bold mb-2">Last 5 Rows (Tail)</div>
+                   <v-card flat border class="overflow-auto">
+                      <v-table density="compact">
+                         <thead>
+                            <tr><th v-for="h in detailsData.headers" :key="h">{{ h }}</th></tr>
+                         </thead>
+                         <tbody>
+                            <tr v-for="(row, i) in detailsData.tail" :key="i">
+                               <td v-for="(cell, j) in row" :key="j">{{ cell }}</td>
+                            </tr>
+                         </tbody>
+                      </v-table>
+                   </v-card>
+                </v-window-item>
+
+             </v-window>
+          </v-card-text>
+       </v-card>
+       
+       <!-- LOADING STATE FOR DIALOG -->
+       <v-card v-else class="rounded-xl pa-8 d-flex flex-column align-center justify-center" min-height="400">
+           <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+           <div class="mt-4 text-h6">Analyzing Dataset...</div>
+           <div class="text-caption text-medium-emphasis">Calculating statistics and distribution</div>
+       </v-card>
+    </v-dialog>
+
+    <!-- COMPREHENSIVE ANALYSIS DASHBOARD -->
+    <v-dialog v-model="analysisDialog" fullscreen transition="dialog-bottom-transition">
+        <v-card class="bg-grey-lighten-5">
+            <v-toolbar color="surface" elevation="1">
+                <v-btn icon="mdi-close" @click="analysisDialog = false"></v-btn>
+                <v-toolbar-title class="text-h6 font-weight-bold">
+                    Exploratory Data Analysis
+                    <span class="text-caption text-medium-emphasis ms-2" v-if="analysisDataset">
+                         {{ analysisDataset.fileName }}
+                    </span>
+                </v-toolbar-title>
+                <v-spacer></v-spacer>
+                <v-tabs v-model="edaTab" color="primary" align-tabs="end" class="mx-4">
+                    <v-tab value="overview" prepend-icon="mdi-view-dashboard">Overview</v-tab>
+                    <v-tab value="univariate" prepend-icon="mdi-chart-histogram">Distribution</v-tab>
+                    <v-tab value="bivariate" prepend-icon="mdi-chart-scatter-plot">Correlation</v-tab>
+                    <v-tab value="importance" prepend-icon="mdi-lightning-bolt">Feature Importance</v-tab>
+                </v-tabs>
+            </v-toolbar>
+
+            <v-card-text class="pa-0" v-if="analysisResults">
+                <div class="h-100">
+                    <!-- MAIN CONTENT AREA -->
+                    <div class="pa-6 mx-auto" style="max-width: 1400px; min-width: 0;">
+                        
+                        <!-- 1. OVERVIEW -->
+                        <div v-if="edaTab === 'overview'">
+                            <div class="d-flex justify-space-between align-center mb-6">
+                                <div>
+                                    <div class="text-h4 font-weight-bold bg-gradient-text">Dataset Overview</div>
+                                    <div class="text-body-2 text-medium-emphasis">High-level health check and data snapshot.</div>
+                                </div>
+                                <v-chip class="font-weight-bold" color="primary" variant="flat" size="large">
+                                    {{ analysisResults.fileName }}
+                                </v-chip>
+                            </div>
+
+                            <!-- Summary Metrics -->
+                            <v-row class="mb-6">
+                                <v-col cols="12" sm="6" md="3">
+                                    <v-card class="py-4 px-2 text-center rounded-xl border bg-surface-light" flat>
+                                        <div class="text-h4 font-weight-bold text-primary">{{ Object.keys(analysisResults.univariate).length }}</div>
+                                        <div class="text-caption text-uppercase font-weight-bold text-medium-emphasis">Columns (Features)</div>
+                                    </v-card>
+                                </v-col>
+                                <v-col cols="12" sm="6" md="3">
+                                    <v-card class="py-4 px-2 text-center rounded-xl border bg-surface-light" flat>
+                                        <div class="text-h4 font-weight-bold text-info">{{ analysisResults.sample.length >= 5000 ? '5,000+' : analysisResults.sample.length }}</div>
+                                        <div class="text-caption text-uppercase font-weight-bold text-medium-emphasis">Rows</div>
+                                    </v-card>
+                                </v-col>
+                                <v-col cols="12" sm="6" md="3">
+                                    <v-card class="py-4 px-2 text-center rounded-xl border bg-surface-light" flat>
+                                        <div class="text-h4 font-weight-bold text-warning">
+                                            {{ Object.values(analysisResults.univariate).reduce((acc: any, curr: any) => acc + curr.missing, 0) }}
+                                        </div>
+                                        <div class="text-caption text-uppercase font-weight-bold text-medium-emphasis">Missing Cells</div>
+                                    </v-card>
+                                </v-col>
+                                <v-col cols="12" sm="6" md="3">
+                                    <v-card class="py-4 px-2 text-center rounded-xl border bg-surface-light" flat>
+                                        <div class="text-h4 font-weight-bold text-success">{{ (Object.keys(analysisResults.univariate).length * analysisResults.sample.length).toLocaleString() }}</div>
+                                        <div class="text-caption text-uppercase font-weight-bold text-medium-emphasis">Total Data Points</div>
+                                    </v-card>
+                                </v-col>
+                            </v-row>
+                            
+                            <!-- Sample Data Check -->
+                            <v-card class="mb-6 border rounded-xl elevation-2" flat style="max-width: 100%;">
+                                <v-card-title class="text-subtitle-1 font-weight-bold border-b bg-surface d-flex align-center">
+                                    <v-icon start icon="mdi-table" size="small"></v-icon>
+                                    Data Explorer
+                                    <v-spacer></v-spacer>
+                                    <span class="text-caption text-medium-emphasis">Showing up to 5,000 rows</span>
+                                </v-card-title>
+                                <v-data-table
+                                    :headers="Object.keys(analysisResults.sample[0] || {}).map(k => ({ title: k, key: k, sortable: true }))"
+                                    :items="analysisResults.sample"
+                                    density="compact"
+                                    class="bg-transparent"
+                                    fixed-header
+                                    height="600"
+                                    :items-per-page="50"
+                                ></v-data-table>
+                            </v-card>
+                        </div>
+
+                        <!-- 2. UNIVARIATE -->
+                        <div v-if="edaTab === 'univariate'">
+                            <div class="mb-6">
+                                <div class="text-h4 font-weight-bold bg-gradient-text mb-2">Features Distribution</div>
+                                <div class="text-body-1 text-medium-emphasis">Detailed distribution statistics for every feature.</div>
+                            </div>
+
+                            <v-alert
+                                color="primary"
+                                variant="tonal"
+                                border="start"
+                                border-color="primary"
+                                class="mb-6 rounded-lg elevation-1 bg-white"
+                            >
+                                <template v-slot:prepend>
+                                    <v-icon color="primary" size="large" icon="mdi-chart-histogram"></v-icon>
+                                </template>
+                                <div class="text-subtitle-1 font-weight-bold text-primary">Understanding Your Data's Shape</div>
+                                <div class="text-body-2 text-medium-emphasis mt-1">
+                                    • <b>Skewness</b>: Measures asymmetry. 0 = Symmetrical (Normal). > 0 = Right skewed. < 0 = Left skewed.
+                                    <br>
+                                    • <b>Kurtosis</b>: Measures "tailedness". Higher values = more outliers (heavy tails).
+                                </div>
+                            </v-alert>
+
+                            <v-row>
+                                <v-col v-for="(stats, col) in analysisResults.univariate" :key="col" cols="12" md="6" lg="4">
+                                    <v-card class="rounded-xl border h-100 elevation-2" flat>
+                                        <div class="pa-4 bg-grey-lighten-4 border-b d-flex justify-space-between align-center">
+                                            <div class="font-weight-bold text-h6 text-truncate" style="max-width: 200px;" :title="String(col)">
+                                                {{ col }}
+                                            </div>
+                                            <v-chip size="small" :color="stats.type === 'numeric' ? 'primary' : 'secondary'" label class="font-weight-bold">
+                                                {{ stats.type }}
+                                            </v-chip>
+                                        </div>
+                                        
+                                        <v-card-text class="pa-4">
+                                            <!-- Stats Grid -->
+                                            <v-row dense class="mb-4">
+                                                <v-col cols="6"><div class="text-caption text-medium-emphasis">Missing</div><div class="font-weight-bold">{{ stats.missing }}</div></v-col>
+                                                <template v-if="stats.type === 'numeric'">
+                                                    <v-col cols="6"><div class="text-caption text-medium-emphasis">Mean</div><div class="font-weight-bold">{{ stats.mean.toFixed(2) }}</div></v-col>
+                                                    <v-col cols="6"><div class="text-caption text-medium-emphasis">Skew</div><div class="font-weight-bold" :class="Math.abs(stats.skew) > 1 ? 'text-error' : ''">{{ stats.skew.toFixed(2) }}</div></v-col>
+                                                    <v-col cols="6"><div class="text-caption text-medium-emphasis">Kurtosis</div><div class="font-weight-bold">{{ stats.kurtosis.toFixed(2) }}</div></v-col>
+                                                </template>
+                                                <template v-else>
+                                                     <v-col cols="6"><div class="text-caption text-medium-emphasis">Unique</div><div class="font-weight-bold">{{ stats.unique }}</div></v-col>
+                                                </template>
+                                            </v-row>
+
+                                            <!-- Charts -->
+                                            <div style="height: 180px; position: relative;" v-if="stats.type === 'numeric' && stats.histogram">
+                                                <!-- We will render a simplified Bar chart for histogram -->
+                                                <Bar
+                                                    :data="{
+                                                        labels: stats.histogram.bins.slice(0, -1).map((b: number) => b.toFixed(1)),
+                                                        datasets: [{
+                                                            label: 'Frequency',
+                                                            data: stats.histogram.counts,
+                                                            backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                                                            borderColor: 'rgb(99, 102, 241)',
+                                                            borderWidth: 2,
+                                                            borderRadius: 4,
+                                                            barPercentage: 1.0,
+                                                            categoryPercentage: 1.0
+                                                        }]
+                                                    }"
+                                                    :options="{ 
+                                                        responsive: true, 
+                                                        maintainAspectRatio: false, 
+                                                        plugins: { legend: { display: false } },
+                                                        scales: {
+                                                            x: { grid: { display: false } },
+                                                            y: { grid: { display: false }, ticks: { display: false } }
+                                                        }
+                                                    }"
+                                                />
+                                            </div>
+                                            <div style="height: 200px; position: relative;" v-else-if="stats.type === 'categorical'">
+                                                <Bar
+                                                    :data="{
+                                                        labels: Object.keys(stats.counts),
+                                                        datasets: [{
+                                                            label: 'Count',
+                                                            data: Object.values(stats.counts) as any,
+                                                            backgroundColor: 'rgba(99, 102, 241, 0.5)',
+                                                            borderColor: 'rgb(99, 102, 241)',
+                                                            borderWidth: 1
+                                                        }]
+                                                    }"
+                                                    :options="{ indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }"
+                                                />
+                                            </div>
+                                        </v-card-text>
+                                    </v-card>
+                                </v-col>
+                            </v-row>
+                        </div>
+
+                         <!-- 3. BIVARIATE (CORRELATION) -->
+                        <div v-if="edaTab === 'bivariate'">
+                            <div class="mb-6">
+                                <div class="text-h4 font-weight-bold bg-gradient-text mb-2">Correlations</div>
+                                <div class="text-body-1 text-medium-emphasis">Relationships and correlations between variables.</div>
+                            </div>
+                            
+                            <v-alert
+                                color="primary"
+                                variant="tonal"
+                                border="start"
+                                border-color="primary"
+                                class="mb-6 rounded-lg elevation-1 bg-white"
+                            >
+                                <template v-slot:prepend>
+                                    <v-icon color="primary" size="large" icon="mdi-vector-link"></v-icon>
+                                </template>
+                                <div class="text-subtitle-1 font-weight-bold text-primary">Correlation Matrix Heatmap</div>
+                                <div class="text-body-2 text-medium-emphasis mt-1">
+                                    • Values range from <b>-1 (Negative)</b> to <b>1 (Positive)</b>.
+                                    <br>
+                                    • <b>Red</b> = Positive correlation. <b>Blue</b> = Negative correlation.
+                                    <br>
+                                    • High correlation (> 0.8) indicates redundant features (multicollinearity).
+                                </div>
+                            </v-alert>
+
+                            <v-card class="rounded-xl border mb-6 elevation-2" flat v-if="analysisResults.correlation">
+                                <v-card-title>Correlation Matrix (Pearson)</v-card-title>
+                                <v-card-text>
+                                    <!-- A simple grid visualization for heatmap -->
+                                    <!-- Since chart.js heatmap needs a plugin, we'll use a CSS grid approach for robustness -->
+                                    <div class="overflow-auto">
+                                        <table class="w-100 text-caption" style="border-collapse: separate; border-spacing: 2px;">
+                                            <thead>
+                                                <tr>
+                                                    <th></th>
+                                                    <th v-for="col in analysisResults.correlation.columns" :key="col" class="text-center font-weight-bold pa-2">
+                                                        {{ col.substring(0, 10) }}...
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="rowCol in analysisResults.correlation.columns" :key="rowCol">
+                                                    <td class="font-weight-bold pr-2">{{ rowCol }}</td>
+                                                    <td v-for="col in analysisResults.correlation.columns" :key="col" class="text-center">
+                                                        <div 
+                                                            class="pa-2 rounded"
+                                                            :style="{
+                                                                backgroundColor: getCorrelationColor(getCorrelationValue(rowCol, col)),
+                                                                color: Math.abs(getCorrelationValue(rowCol, col)) > 0.5 ? 'white' : 'black'
+                                                            }"
+                                                        >
+                                                            {{ getCorrelationValue(rowCol, col).toFixed(2) }}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </v-card-text>
+                            </v-card>
+                        </div>
+
+                        <!-- 4. FEATURE IMPORTANCE -->
+                        <div v-if="edaTab === 'importance'">
+                            <div class="mb-6">
+                                <div class="text-h4 font-weight-bold bg-gradient-text mb-2">Feature Importance</div>
+                                <div class="text-body-1 text-medium-emphasis">
+                                    Key drivers of the target variable: 
+                                    <span class="font-weight-bold text-primary">{{ analysisResults.featureImportance.target }}</span>
+                                </div>
+                            </div>
+
+                            <v-alert
+                                color="primary"
+                                variant="tonal"
+                                border="start"
+                                border-color="primary"
+                                class="mb-6 rounded-lg elevation-1 bg-white"
+                            >
+                                <template v-slot:prepend>
+                                    <v-icon color="primary" size="large" icon="mdi-lightning-bolt"></v-icon>
+                                </template>
+                                <div class="text-subtitle-1 font-weight-bold text-primary">Which features matter most?</div>
+                                <div class="text-body-2 text-medium-emphasis mt-1">
+                                    • <b>Longer Bars</b> = Higher impact on prediction.
+                                    <br>
+                                    • Features with near-zero importance adds noise and can be removed (Dimensionality Reduction).
+                                </div>
+                            </v-alert>
+
+                            <v-card class="rounded-xl border pa-4 elevation-2" flat height="500">
+                                <Bar
+                                    v-if="analysisResults.featureImportance.scores"
+                                    :data="{
+                                        labels: analysisResults.featureImportance.scores.map((s: any) => s.feature),
+                                        datasets: [{
+                                            label: 'Importance Score',
+                                            data: analysisResults.featureImportance.scores.map((s: any) => s.importance),
+                                            backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                                            borderColor: 'rgb(99, 102, 241)',
+                                            borderWidth: 2,
+                                            borderRadius: 4
+                                        }]
+                                    }"
+                                    :options="{ 
+                                        indexAxis: 'y', 
+                                        responsive: true, 
+                                        maintainAspectRatio: false,
+                                        plugins: { legend: { display: false } }
+                                    }"
+                                />
+                            </v-card>
+                        </div>
+
+                    </div>
+                </div>
+            </v-card-text>
+
+            <!-- LOADING STATE -->
+            <div v-else class="d-flex flex-column align-center justify-center h-100">
+               <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+               <div class="text-h6 mt-4">Running Comprehensive Analysis...</div>
+               <div class="text-caption text-medium-emphasis">Calculating correlations, training quick-models, and generating distributions.</div>
+            </div>
+        </v-card>
+    </v-dialog>
+
   </v-container>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useDatasetsStore, type Dataset } from '../../stores/datasets';
+
 import axios from 'axios';
 import { useDisplay } from 'vuetify';
+
+// Chart.js imports
+import {
+  Chart as ChartJS,
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement
+} from 'chart.js'
+import { Bar } from 'vue-chartjs'
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, ArcElement)
 
 const { lgAndUp } = useDisplay();
 const datasetsStore = useDatasetsStore();
 
+
+// ... existing state ...
 // State
 const files = ref<File[]>([]);
 const fileInput = ref<any>(null);
 const isDragging = ref(false);
 const isLoadingInit = ref(true);
 const showSuccess = ref(false);
+
+// Details Dialog State
+const detailsDialog = ref(false);
+const detailsData = ref<any>(null);
+const detailsTab = ref('overview');
+
+// ... existing refs (previewDialog, etc) ...
+
+// --- Actions ---
+
+// EDA State
+const analysisDialog = ref(false);
+const analysisResults = ref<any>(null);
+const analysisDataset = ref<Dataset | null>(null);
+const edaTab = ref('overview');
+
+// --- Actions ---
+
+const analyzeData = async (dataset: Dataset) => {
+    // UPDATED: Open EDA Dashboard instead of redirect
+    analysisDataset.value = dataset;
+    analysisDialog.value = true;
+    analysisResults.value = null; // Loading
+    edaTab.value = 'overview';
+    
+    try {
+        // Find filename logic again (should be centralized but simple enough here)
+        let actualFileName = dataset.fileName;
+        if (dataset.storagePath.startsWith('http')) {
+             const parts = dataset.storagePath.split('/');
+             actualFileName = parts[parts.length - 1] || actualFileName;
+        }
+        
+        const results = await datasetsStore.fetchEDA(dataset.id, actualFileName);
+        analysisResults.value = results;
+    } catch (e) {
+        console.error("EDA Failed", e);
+        analysisDialog.value = false;
+        alert("Analysis failed. Backend might be busy or offline.");
+    }
+};
+
+const getCorrelationValue = (row: string, col: string) => {
+    if (!analysisResults.value?.correlation?.matrix) return 0;
+    const match = analysisResults.value.correlation.matrix.find((m: any) => m.x === col && m.y === row);
+    return match ? match.v : 0;
+};
+
+const getCorrelationColor = (val: number) => {
+    // Heatmap color scale: Blue (-1) -> White (0) -> Red (1)
+    if (val === 1) return 'rgba(0,0,0,0.1)'; // Diagonal
+    const alpha = Math.abs(val);
+    if (val > 0) return `rgba(239, 68, 68, ${alpha})`; // Red
+    return `rgba(59, 130, 246, ${alpha})`; // Blue
+};
+
+const openDetails = async (dataset: Dataset) => {
+    detailsDialog.value = true;
+    detailsData.value = null; // Show loading
+    detailsTab.value = 'overview';
+    
+    try {
+        const data = await datasetsStore.fetchDatasetDetails(dataset.id);
+        detailsData.value = data;
+    } catch (e) {
+        console.error("Failed to load details", e);
+        detailsDialog.value = false;
+        alert("Failed to analyze dataset. Is the backend running?");
+    }
+};
+
+// ... existing code ...
 
 // Preview & Upload Config State
 const previewDialog = ref(false);

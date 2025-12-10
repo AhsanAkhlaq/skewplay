@@ -26,32 +26,34 @@
         <v-card class="glass-card pa-6" elevation="0" :style="lgAndUp ? 'position: sticky; top: 90px;' : ''">
           <div class="text-h6 font-weight-bold mb-4 text-high-emphasis">New Experiment</div>
           
-          <div class="pa-4 bg-surface-variant rounded-xl border-dashed">
+          <div class="pa-5 bg-grey-lighten-5 rounded-lg border">
              <v-form @submit.prevent="createWorkflow">
+                <div class="text-caption font-weight-bold text-medium-emphasis mb-1">NAME</div>
                 <v-text-field
                   v-model="newWorkflowName"
-                  label="Experiment Name"
                   placeholder="e.g. Churn Prediction V1"
                   variant="outlined"
                   bg-color="surface"
-                  density="comfortable"
-                  class="mb-3"
+                  density="compact"
+                  class="mb-4"
                   hide-details="auto"
                 ></v-text-field>
                 
+                <div class="text-caption font-weight-bold text-medium-emphasis mb-1">DATASET</div>
                 <v-select
                   v-model="selectedDatasetId"
                   :items="datasetOptions"
                   item-title="fileName"
                   item-value="id"
-                  label="Select Dataset"
+                  placeholder="Select a dataset"
                   variant="outlined"
                   bg-color="surface"
-                  density="comfortable"
+                  density="compact"
                   :loading="datasetsStore.isLoading"
                   no-data-text="No datasets available"
                   hide-details="auto"
-                  class="mb-4"
+                  class="mb-6"
+                  menu-icon="mdi-chevron-down"
                 >
                    <template v-slot:item="{ props, item }">
                       <v-list-item v-bind="props" :subtitle="item.raw.isSample ? 'Sample' : 'User Data'"></v-list-item>
@@ -66,7 +68,8 @@
                    @click="createWorkflow"
                    :disabled="!newWorkflowName || !selectedDatasetId || workflowsStore.isLoading"
                    :loading="workflowsStore.isLoading"
-                   prepend-icon="mdi-plus"
+                   elevation="2"
+                   class="text-capitalize font-weight-bold letter-spacing-0"
                 >
                    Start Experiment
                 </v-btn>
@@ -101,9 +104,16 @@
         ></v-text-field>
 
         <!-- LOADING -->
-        <div v-if="workflowsStore.isLoading" class="text-center mt-12">
-           <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-           <div class="mt-4 text-medium-emphasis">Loading experiments...</div>
+        <div v-if="workflowsStore.isLoading" class="mt-8">
+           <v-row>
+             <v-col v-for="n in 4" :key="n" cols="12" sm="6">
+               <v-skeleton-loader 
+                 class="rounded-lg border" 
+                 type="article, actions"
+                 height="180"
+               ></v-skeleton-loader>
+             </v-col>
+           </v-row>
         </div>
 
         <!-- EMPTY STATE -->

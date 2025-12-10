@@ -99,8 +99,11 @@
         <v-card elevation="0" class="rounded-lg border" style="background: transparent;">
           
           <!-- Loading State -->
-          <div v-if="workflowsStore.isLoading" class="pa-8 text-center">
-            <v-progress-circular indeterminate color="primary"></v-progress-circular>
+          <div v-if="workflowsStore.isLoading" class="pa-4">
+            <v-skeleton-loader 
+                type="list-item-avatar-two-line, divider, list-item-avatar-two-line, divider, list-item-avatar-two-line"
+                class="bg-transparent"
+            ></v-skeleton-loader>
           </div>
 
           <v-list v-else bg-color="transparent" lines="two" class="pa-2">
