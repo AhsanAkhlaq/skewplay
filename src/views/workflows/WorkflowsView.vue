@@ -52,13 +52,27 @@
                   :loading="datasetsStore.isLoading"
                   no-data-text="No datasets available"
                   hide-details="auto"
-                  class="mb-6"
+                  class="mb-2"
                   menu-icon="mdi-chevron-down"
                 >
                    <template v-slot:item="{ props, item }">
                       <v-list-item v-bind="props" :subtitle="item.raw.isSample ? 'Sample' : 'User Data'"></v-list-item>
                    </template>
                 </v-select>
+
+                <!-- ANALYZE DATA BUTTON -->
+                <div class="d-flex justify-end mb-6">
+                    <v-btn
+                        variant="text"
+                        size="small"
+                        color="primary"
+                        prepend-icon="mdi-chart-bar"
+                        :disabled="!selectedDatasetId"
+                        @click="analyzeSelectedDataset"
+                    >
+                        Analyze Selected Data
+                    </v-btn>
+                </div>
 
                 <v-btn 
                    block 
@@ -72,6 +86,7 @@
                    class="text-capitalize font-weight-bold letter-spacing-0"
                 >
                    Start Experiment
+                   <v-icon end icon="mdi-open-in-new" size="small" class="ml-2"></v-icon>
                 </v-btn>
              </v-form>
           </div>
@@ -138,18 +153,18 @@
               class="glass-card h-100 d-flex flex-column cursor-pointer"
               hover
               @click="openWorkflow(workflow.id)"
-              :class="{ 'border-success': workflow.status === 'Completed', 'border-error': workflow.status === 'Failed' }"
+              :class="{ 'border-success': getWorkflowStatus(workflow) === 'Completed', 'border-error': getWorkflowStatus(workflow) === 'Failed' }"
             >
               <div class="pa-4 flex-grow-1">
                 <div class="d-flex justify-space-between align-start mb-3">
                   <v-chip
                     size="x-small"
-                    :color="getStatusColor(workflow.status)"
+                    :color="getStatusColor(getWorkflowStatus(workflow))"
                     variant="flat"
                     class="font-weight-bold text-uppercase letter-spacing-1"
                     label
                   >
-                    {{ workflow.status }}
+                    {{ getWorkflowStatus(workflow) }}
                   </v-chip>
                   
                   <v-menu location="bottom end">
@@ -175,7 +190,7 @@
                 </div>
 
                 <!-- METRICS PREVIEW -->
-                <div v-if="workflow.status === 'Completed' && workflow.results" class="d-flex flex-wrap gap-2 mb-2">
+                <div v-if="getWorkflowStatus(workflow) === 'Completed' && workflow.results" class="d-flex flex-wrap gap-2 mb-2">
                    <div class="d-flex align-center bg-green-lighten-5 px-2 py-1 rounded">
                       <span class="text-caption font-weight-bold text-green-darken-2 mr-1">ACC</span>
                       <span class="text-caption text-green-darken-3">{{ (workflow.results.accuracy * 100).toFixed(0) }}%</span>
@@ -186,7 +201,7 @@
                    </div>
                 </div>
                 
-                <div v-if="workflow.status === 'Failed'" class="text-caption text-error d-flex align-center mt-2">
+                <div v-if="getWorkflowStatus(workflow) === 'Failed'" class="text-caption text-error d-flex align-center mt-2">
                     <v-icon size="small" class="mr-1">mdi-alert-circle-outline</v-icon>
                     Failed
                 </div>
@@ -205,6 +220,10 @@
         </v-row>
       </v-col>
     </v-row>
+
+    <!-- EDA DASHBOARD COMPONENT -->
+    <EdaDashboard v-model="analysisDialog" :dataset="analysisDataset" />
+
   </v-container>
 </template>
 
@@ -212,9 +231,12 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useWorkflowsStore, type PipelineConfig } from '../../stores/workflows';
-import { useDatasetsStore } from '../../stores/datasets';
+import { useDatasetsStore, type Dataset } from '../../stores/datasets';
 import { useAuthStore } from '../../stores/auth';
 import { useDisplay } from 'vuetify';
+
+// Import EDA Dashboard
+import EdaDashboard from '../../components/EdaDashboard.vue';
 
 const router = useRouter();
 const workflowsStore = useWorkflowsStore();
@@ -226,16 +248,35 @@ const { lgAndUp } = useDisplay();
 const newWorkflowName = ref('');
 const selectedDatasetId = ref<string | null>(null);
 
+// EDA State
+const analysisDialog = ref(false);
+const analysisDataset = ref<Dataset | null>(null);
+
+
 // Search State
 const searchQuery = ref('');
+
+const getWorkflowStatus = (w: any) => {
+    if (w.error) return 'Failed';
+    if (w.results) return 'Completed';
+    // derived from currentStep
+    switch (w.currentStep) {
+        case 0: return 'Draft';
+        case 1: return 'Preprocessing';
+        case 2: return 'Balancing';
+        case 3: return 'Training';
+        case 4: return 'Completed';
+        default: return 'Draft';
+    }
+};
 
 const filteredWorkflows = computed(() => {
     if (!searchQuery.value) return workflowsStore.workflows;
     const q = searchQuery.value.toLowerCase();
-    return workflowsStore.workflows.filter(w => 
-        w.name.toLowerCase().includes(q) || 
-        w.status.toLowerCase().includes(q)
-    );
+    return workflowsStore.workflows.filter(w => {
+        const status = getWorkflowStatus(w).toLowerCase();
+        return w.name.toLowerCase().includes(q) || status.includes(q);
+    });
 });
 
 // Fetch Data
@@ -265,8 +306,9 @@ const getStatusColor = (status: string) => {
     switch (status) {
         case 'Completed': return 'success';
         case 'Failed': return 'error';
-        case 'Running': return 'info';
         case 'Training': return 'info';
+        case 'Preprocessing': return 'info';
+        case 'Balancing': return 'info';
         default: return 'grey';
     }
 };
@@ -275,6 +317,15 @@ const formatDate = (timestamp: any) => {
     if (!timestamp) return '';
     const date = new Date(timestamp.seconds * 1000);
     return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+};
+
+const analyzeSelectedDataset = () => {
+   if (!selectedDatasetId.value) return;
+   const dataset = datasetsStore.datasets.find(d => d.id === selectedDatasetId.value);
+   if (dataset) {
+       analysisDataset.value = dataset;
+       analysisDialog.value = true;
+   }
 };
 
 const createWorkflow = async () => {
@@ -333,7 +384,9 @@ const createWorkflow = async () => {
         if (newId) {
             newWorkflowName.value = '';
             selectedDatasetId.value = null;
-            router.push({ name: 'workflow-editor', params: { id: newId } });
+            // UPDATED: Open in new tab (Full Screen Editor)
+            const routeData = router.resolve({ name: 'workflow-editor', params: { id: newId } });
+            window.open(routeData.href, '_blank');
         }
     } catch (e) {
         console.error("Failed to create", e);
@@ -342,7 +395,9 @@ const createWorkflow = async () => {
 };
 
 const openWorkflow = (id: string) => {
-    router.push({ name: 'workflow-editor', params: { id } });
+    // UPDATED: Open in new tab (Full Screen Editor)
+    const routeData = router.resolve({ name: 'workflow-editor', params: { id } });
+    window.open(routeData.href, '_blank');
 };
 
 const handleDelete = async (id: string) => {

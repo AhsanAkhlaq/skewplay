@@ -15,14 +15,9 @@ export interface RunWorkflowPayload {
 }
 
 export default {
-    // Generic fetch for dataset headers (ranges, etc)
     async fetchDatasetHeaders(url: string) {
-        // If it's a full URL (Firebase Storage), we use it directly.
-        // However, if we want to proxy or standardise, we can do it here.
-        // For now, we keep the direct call but wrapped.
         if (!url) return [];
 
-        // We create a temp instance without base URL for external links
         const response = await axios.get(url, {
             headers: { Range: 'bytes=0-1024' }
         });
@@ -38,6 +33,24 @@ export default {
     async runWorkflow(payload: FormData) {
         // NOTE: FormData acts differently, so we let browser set Content-Type
         const response = await apiClient.post('/run', payload, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    },
+
+    async runBalancing(payload: FormData) {
+        const response = await apiClient.post('/balance', payload, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    },
+
+    async getImbalanceAnalysis(payload: FormData) {
+        const response = await apiClient.post('/imbalance-analysis', payload, {
             headers: {
                 'Content-Type': 'multipart/form-data'
             }

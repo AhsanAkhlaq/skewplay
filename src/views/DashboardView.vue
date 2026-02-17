@@ -138,17 +138,17 @@
 
                 <v-list-item-title class="font-weight-bold text-high-emphasis">{{ wf.name }}</v-list-item-title>
                 <v-list-item-subtitle class="text-caption text-medium-emphasis">
-                  {{ wf.status }} • Created {{ new Date(wf.createdAt?.seconds * 1000).toLocaleDateString() }}
+                  {{ getWorkflowStatus(wf) }} • Created {{ new Date(wf.createdAt?.seconds * 1000).toLocaleDateString() }}
                 </v-list-item-subtitle>
 
                 <template v-slot:append>
                   <v-chip
                     size="small"
-                    :color="getStageColor(wf.status)"
+                    :color="getStageColor(getWorkflowStatus(wf))"
                     label
                     class="font-weight-bold"
                   >
-                    {{ wf.status }}
+                    {{ getWorkflowStatus(wf) }}
                   </v-chip>
                 </template>
               </v-list-item>
@@ -252,6 +252,21 @@ const datasetsStore = useDatasetsStore();
 const workflowsStore = useWorkflowsStore();
 
 
+const getWorkflowStatus = (w: any) => {
+    if (!w) return 'Unknown';
+    if (w.error) return 'Failed';
+    if (w.results) return 'Completed';
+    // derived from currentStep
+    switch (w.currentStep) {
+        case 0: return 'Draft';
+        case 1: return 'Preprocessing';
+        case 2: return 'Balancing';
+        case 3: return 'Training';
+        case 4: return 'Completed';
+        default: return 'Draft';
+    }
+};
+
 const getStageColor = (status: string) => {
   return status === 'Completed' ? 'success' : 'grey';
 };
@@ -303,7 +318,8 @@ const latestWorkflow = computed(() => workflowsStore.workflows[0]);
 
 const activeStageLabel = computed(() => {
     if (!latestWorkflow.value) return 'Idle';
-    return latestWorkflow.value.status === 'Draft' ? 'In Progress' : 'Finished';
+    const status = getWorkflowStatus(latestWorkflow.value);
+    return status === 'Draft' ? 'In Progress' : status;
 });
 
 const goToHeroWorkflow = () => {

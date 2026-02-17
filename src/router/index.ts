@@ -46,11 +46,7 @@ const router = createRouter({
           name: 'workflows',
           component: () => import('../views/workflows/WorkflowsView.vue'),
         },
-        {
-          path: 'workflows/:id',
-          name: 'workflow-editor',
-          component: () => import('../views/workflows/WorkflowEditor.vue'),
-        },
+        // workflow-editor removed from here to be full screen
         {
           path: 'tutorials',
           name: 'tutorials',
@@ -62,6 +58,13 @@ const router = createRouter({
           component: () => import('../views/profile/ProfileView.vue'),
         },
       ],
+    },
+    // Top-level route for Full Screen Workflow Editor
+    {
+      path: '/editor/:id',
+      name: 'workflow-editor',
+      component: () => import('../views/workflows/WorkflowEditor.vue'),
+      meta: { requiresAuth: true },
     },
     {
       path: '/:pathMatch(.*)*',

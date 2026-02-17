@@ -1,153 +1,282 @@
 <template>
   <div class="d-flex flex-column h-100 bg-background overflow-hidden position-relative">
     
-    <!-- Navigation Bar -->
+    <!-- HEADER (72px) -->
     <v-card class="flex-none bg-surface border-b d-flex align-center px-4 py-2" elevation="0" style="z-index: 10; height: 72px;">
-      
-      <!-- Back & Title -->
-      <div class="d-flex align-center" style="min-width: 200px;">
-         <v-btn 
-            variant="text" 
-            icon="mdi-arrow-left"
-            @click="$router.push('/app/workflows')" 
-            class="me-2 text-medium-emphasis"
-         ></v-btn>
+       <!-- Back & Title -->
+       <div class="d-flex align-center" style="min-width: 200px;">
+         <v-avatar 
+            color="transparent" 
+            size="36" 
+            rounded="lg" 
+            variant="flat" 
+            class="me-3 cursor-pointer"
+            @click="$router.push('/app/workflows')"
+         >
+            <v-img src="/images/logo.ico" alt="Logo" width="36" height="36"></v-img>
+         </v-avatar>
 
          <div class="d-flex flex-column">
              <div class="text-subtitle-2 font-weight-bold text-high-emphasis text-truncate" style="max-width: 200px;">{{ workflow?.name || 'Loading...' }}</div>
              <div class="d-flex align-center gap-2">
-                 <v-chip size="x-small" :color="getStatusColor(workflow?.status || '')" label class="font-weight-bold" density="compact">
-                    {{ workflow?.status || 'Unknown' }}
+                 <v-chip size="x-small" :color="statusColor" label class="font-weight-bold" density="compact">
+                    {{ workflowStatus }}
                  </v-chip>
                  <span v-if="lastSaved" class="text-caption text-disabled" style="font-size: 10px;">Saved {{ lastSaved }}</span>
              </div>
          </div>
-      </div>
+       </div>
 
-      <v-spacer></v-spacer>
+       <v-spacer></v-spacer>
 
-      <!-- Stepper -->
-      <div class="d-flex align-center justify-center">
+       <!-- Stepper -->
+       <div class="d-flex align-center justify-center">
          <div class="d-flex align-center gap-4">
             <template v-for="(step, i) in steps" :key="i">
-                <!-- Step Item -->
                 <div 
                     class="d-flex align-center cursor-pointer step-item pa-1 rounded"
-                    :class="{ 
-                        'disabled': i + 1 > maxStepReached && i + 1 > currentStep
-                    }"
-                    @click="(i + 1 <= maxStepReached || i + 1 < currentStep) && (currentStep = i + 1)"
+                    :class="{ 'disabled': i > maxStepReached && i > currentStep }"
+                    @click="(i <= maxStepReached || i < currentStep) && (currentStep = i)"
                 >
                     <div 
                         class="d-flex align-center justify-center rounded-circle transition-all me-2"
-                        :class="getStepColorClass(i + 1)"
+                        :class="getStepColorClass(i)"
                         style="width: 32px; height: 32px;"
                     >
-                         <v-icon size="16" :icon="i + 1 < currentStep ? 'mdi-check' : step.icon" :color="getStepIconColor(i + 1)"></v-icon>
-                    </div>
-                    <div class="text-caption font-weight-bold" :class="currentStep === i + 1 ? 'text-primary' : 'text-medium-emphasis'" v-if="currentStep === i + 1 || i + 1 < currentStep">
-                        {{ step.title }}
+                         <v-icon size="16" :icon="i < currentStep ? 'mdi-check' : step.icon" :color="getStepIconColor(i)"></v-icon>
                     </div>
                 </div>
-
-                <!-- Simple Line -->
                 <div v-if="i < steps.length - 1" class="bg-grey-lighten-2" style="width: 24px; height: 2px;"></div>
             </template>
          </div>
-      </div>
+       </div>
 
-      <v-spacer></v-spacer>
-      
-      <div style="min-width: 200px;"></div> 
-
-    </v-card>
-
-    <!-- MAIN CONTENT -->
-    <div class="flex-grow-1 overflow-y-auto h-100 pa-8 position-relative bg-background">
-      <v-container style="max-width: 1000px;" class="mx-auto pa-0 pb-16">
-        
-        <!-- LOADING -->
-        <div v-if="workflowsStore.isLoading && !workflow" class="mt-12">
-           <v-skeleton-loader type="heading" width="300" class="mb-4 bg-transparent"></v-skeleton-loader>
-           <v-skeleton-loader type="paragraph" class="mb-8 bg-transparent"></v-skeleton-loader>
-           <v-row>
-              <v-col cols="12" md="8"><v-skeleton-loader type="image" height="400" class="rounded-xl"></v-skeleton-loader></v-col>
-              <v-col cols="12" md="4"><v-skeleton-loader type="text, text, button" class="bg-transparent"></v-skeleton-loader></v-col>
-           </v-row>
-        </div>
-
-        <div v-else-if="workflow" class="fade-enter-active">
-           
-           <StepDataset 
-             v-if="currentStep === 1"
-             :dataset="dataset"
-             :headers="datasetHeaders"
-             :is-loading-headers="isLoadingHeaders"
-             :disabled="workflowsStore.isLoading || datasetsStore.isLoading"
-             v-model="selectedTargetColumn"
-             @change="onTargetChange"
-           />
-           
-           <StepPreprocessing 
-             v-if="currentStep === 2"
-             v-model="config.preprocessing" 
-           />
-
-           <StepImbalance 
-             v-if="currentStep === 3"
-             v-model="config.imbalance" 
-           />
-
-           <StepModel 
-             v-if="currentStep === 4"
-             v-model="config.model" 
-           />
-
-           <StepResults 
-             v-if="currentStep === 5"
-             :workflow="workflow"
-             :is-loading="workflowsStore.isLoading"
-             @run="saveAndRun"
-           />
-
-        </div>
-      </v-container>
-    </div>
-    
-    <!-- NAVIGATION FOOTER -->
-    <v-card 
-        elevation="3" 
-        rounded="lg" 
-        class="position-fixed bottom-0 right-0 ma-6 pa-3 d-flex align-center gap-4 bg-surface border"
-        style="z-index: 100; right: 24px; bottom: 24px;"
-        v-if="workflow"
-    >
-        <v-btn 
-            variant="text" 
-            :disabled="currentStep === 1" 
-            @click="currentStep--"
-            prepend-icon="mdi-arrow-left"
-            class="px-4"
-        >
-            Previous
-        </v-btn>
-        
-        <v-divider vertical class="ma-1"></v-divider>
-
-        <!-- Dynamic Next/Run Button -->
-        <v-btn 
+       <v-spacer></v-spacer>
+       <div style="min-width: 200px;" class="d-flex justify-end">
+           <v-btn 
             color="primary" 
             variant="flat"
-            :disabled="currentStep === 5 || !isStepValid"
-            @click="currentStep === 4 ? saveAndRun() : nextStep()"
-            :loading="workflowsStore.isLoading && currentStep === 4"
-            :append-icon="currentStep === 4 ? 'mdi-play' : 'mdi-arrow-right'"
+            :disabled="!isStepValid"
+            @click="currentStep === 3 ? saveAndRun() : nextStep()"
+            :loading="workflowsStore.isLoading && currentStep === 3"
+            prepend-icon="mdi-play"
             class="px-6"
-            rounded="mg"
+            rounded="lg"
+            v-if="currentStep === 3"
         >
-            {{ currentStep === 4 ? 'Run Experiment' : 'Next' }}
+            Run Experiment
         </v-btn>
+       </div> 
     </v-card>
+
+    <!-- CONTENT BODY (Split Layout) -->
+    <div class="d-flex flex-grow-1 overflow-hidden">
+
+        <!-- LEFT SIDEBAR: HYPERPARAMETERS (300px) -->
+        <div class="bg-surface border-r d-flex flex-column" style="width: 320px; flex-shrink: 0; z-index: 5;">
+            <div class="px-4 py-3 border-b bg-surface-light font-weight-bold text-uppercase text-caption text-medium-emphasis">
+                Configuration
+            </div>
+
+            <!-- AI Recommendation (Moved to Top) -->
+            <div class="px-4 py-3 border-b bg-grey-lighten-5">
+                 <div class="d-flex align-center mb-2">
+                    <v-icon color="primary" size="small" class="mr-2">mdi-robot</v-icon>
+                    <span class="text-subtitle-2 font-weight-bold">AI Insight</span>
+                </div>
+                
+                 <div class="text-caption text-medium-emphasis mb-3" style="font-size: 11px; line-height: 1.4;">
+                    <div v-if="currentStep === 0">
+                         Based on your data, checking for class imbalance in the target variable is recommended.
+                    </div>
+                    <div v-else-if="currentStep === 3">
+                        Random Forest is a strong baseline for this dataset size and feature type.
+                    </div>
+                    <div v-else>
+                         Proceed to the next step for tailored suggestions.
+                    </div>
+                </div>
+                
+                <v-btn
+                    variant="outlined"
+                    color="primary"
+                    block
+                    size="small"
+                    prepend-icon="mdi-auto-fix"
+                    class="text-none"
+                    :disabled="currentStep !== 0 && currentStep !== 3"
+                >
+                    Apply Suggestion
+                </v-btn>
+            </div>
+            
+            
+            <div class="flex-grow-1 overflow-y-auto pa-4">
+                <v-fade-transition mode="out-in">
+                    
+                    <!-- Step 0: Dataset Params -->
+                    <div v-if="currentStep === 0" key="step0">
+                        <div class="text-subtitle-2 font-weight-bold mb-4">Target Variable</div>
+                        <v-select
+                            v-model="selectedTargetColumn"
+                            :items="datasetHeaders"
+                            label="Select Target"
+                            variant="outlined"
+                            density="comfortable"
+                            prepend-inner-icon="mdi-target"
+                            bg-color="background"
+                            :loading="isLoadingHeaders"
+                            @update:model-value="onTargetChange"
+                            :error-messages="!selectedTargetColumn ? 'Required' : ''"
+                            class="mb-4"
+                        >
+                            <template v-slot:item="{ props, item }">
+                                <v-list-item v-bind="props" :subtitle="item.raw === dataset?.targetColumn ? '(Current)' : ''"></v-list-item>
+                            </template>
+                        </v-select>
+                        
+                        <v-alert type="info" variant="tonal" density="compact" class="text-caption">
+                            Selecting a target variable triggers an automated EDA analysis.
+                        </v-alert>
+                    </div>
+
+                    <!-- Step 1: Preprocessing Params -->
+                    <div v-else-if="currentStep === 1" key="step1">
+                         <div class="text-subtitle-2 font-weight-bold mb-4">Preprocessing</div>
+                         <!-- Placeholder: Ideally StepPreprocessing form controls move here -->
+                         <div class="text-body-2 text-medium-emphasis">
+                             Global preprocessing settings will appear here.
+                         </div>
+                    </div>
+
+                    <!-- Step 3: Model Params -->
+                    <div v-else-if="currentStep === 3" key="step3">
+                         <div class="text-subtitle-2 font-weight-bold mb-4">Model Hyperparameters</div>
+                         <!-- Placeholder -->
+                         <div class="text-body-2 text-medium-emphasis">
+                             Model tuning controls will appear here.
+                         </div>
+                    </div>
+
+                    <div v-else key="empty">
+                        <div class="text-center text-disabled mt-4">
+                            No configuration for this step.
+                        </div>
+                    </div>
+                </v-fade-transition>
+            </div>
+
+
+        </div>
+        
+        <!-- CENTER PANEL (Main + AI Bottom) -->
+        <div class="d-flex flex-column flex-grow-1 h-100 position-relative" style="min-width: 0;">
+            
+            <!-- Step Content (Scrollable) -->
+            <div class="flex-grow-1 overflow-y-auto pa-6 bg-background">
+                <v-container fluid class="pa-0 h-100" style="max-width: 1200px;">
+                    <!-- LOADING -->
+                    <div v-if="workflowsStore.isLoading && !workflow" class="mt-12">
+                        <v-skeleton-loader type="article" class="mb-4 bg-transparent"></v-skeleton-loader>
+                    </div>
+
+                    <div v-else-if="workflow" class="fade-enter-active h-100">
+                         <!-- STEPS RENDER HERE -->
+                        <StepDataset 
+                            v-if="currentStep === 0"
+                            :dataset="dataset"
+                            :headers="datasetHeaders"
+                            :is-loading-headers="isLoadingHeaders"
+                            :disabled="workflowsStore.isLoading || datasetsStore.isLoading"
+                            v-model="selectedTargetColumn"
+                            @change="onTargetChange"
+                        />
+                        
+                        <StepPreprocessing 
+                            v-if="currentStep === 1"
+                            v-model="config.preprocessing" 
+                            :selection="config.selection"
+                            @update:selection="config.selection = $event"
+                            :dataset="dataset"
+                            :headers="datasetHeaders"
+                            @complete="nextStep"
+                        />
+                        <StepImbalance 
+                            v-if="currentStep === 2"
+                            v-model="config.imbalance" 
+                            @complete="nextStep"
+                        />
+                        <StepModel 
+                            v-if="currentStep === 3"
+                            v-model="config.model" 
+                        />
+                        <StepResults 
+                            v-if="currentStep === 4"
+                            :workflow="workflow"
+                            :is-loading="workflowsStore.isLoading"
+                            @run="saveAndRun"
+                        />
+                    </div>
+                </v-container>
+            </div>
+
+
+            <!-- NAVIGATION (Floating Bottom Right of Center Panel) -->
+            <div 
+                class="position-absolute bottom-0 right-0 ma-4 d-flex gap-2"
+                style="bottom: 200px; right: 24px; z-index: 10;" 
+                v-if="workflow && currentStep < 4 && currentStep !== 1"
+            >
+                <v-btn 
+                    variant="tonal" 
+                    :disabled="currentStep === 0" 
+                    @click="currentStep--"
+                    icon="mdi-arrow-left"
+                    density="comfortable"
+                    color="secondary"
+                    elevation="2"
+                    class="bg-surface"
+                ></v-btn>
+                <v-btn 
+                    color="primary" 
+                    variant="flat"
+                    :disabled="!isStepValid"
+                    @click="nextStep"
+                    :append-icon="'mdi-arrow-right'"
+                    rounded="pill"
+                    class="px-6"
+                    elevation="3"
+                >
+                    Next
+                </v-btn>
+            </div>
+        </div>
+
+        <!-- RIGHT SIDEBAR: EXPLAINER (300px) -->
+        <div class="bg-surface border-l d-flex flex-column" style="width: 320px; flex-shrink: 0; z-index: 5;">
+            <div class="px-4 py-3 border-b bg-surface-light font-weight-bold text-uppercase text-caption text-medium-emphasis">
+                Statistical Explainer
+            </div>
+
+            <div class="flex-grow-1 overflow-y-auto pa-4 scrollbar-thin" id="teleport-explainer">
+                <div class="text-center mt-8 text-medium-emphasis">
+                     <v-icon icon="mdi-lightbulb-on-outline" size="large" class="mb-2" color="amber"></v-icon>
+                     <div class="text-subtitle-2 text-high-emphasis mb-1">Model Insights</div>
+                     <div class="text-caption">
+                        Statistical breakdowns and feature importance explanations will appear here as you configure your pipeline.
+                     </div>
+                </div>
+                
+                <v-divider class="my-6"></v-divider>
+                
+                <!-- Placeholder Content -->
+                <div v-if="currentStep === 0" class="text-caption text-medium-emphasis">
+                    <p class="mb-2"><strong>Tip:</strong> The <strong>Kurtosis</strong> value indicates how heavy the tails of your distribution are. High kurtosis means more outliers.</p>
+                    <p><strong>Entropy:</strong> Low entropy means the target variable is predictable (one class dominates).</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
   </div>
 </template>
@@ -155,7 +284,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { useWorkflowsStore, type PipelineConfig } from '../../stores/workflows';
+import { useWorkflowsStore, type PipelineConfig, type Workflow } from '../../stores/workflows';
 import { useDatasetsStore } from '../../stores/datasets';
 import { useUiStore } from '../../stores/ui';
 import api from '../../services/api';
@@ -173,8 +302,8 @@ const datasetsStore = useDatasetsStore();
 const uiStore = useUiStore();
 
 const workflowId = route.params.id as string;
-const currentStep = ref(1);
-const maxStepReached = ref(1);
+const currentStep = ref(0);
+const maxStepReached = ref(0);
 const lastSaved = ref('');
 
 const steps = [
@@ -187,6 +316,7 @@ const steps = [
 
 const config = ref<PipelineConfig>({
     preprocessing: { scaling: 'None', encoding: 'None', splitRatio: 0.2 },
+    selection: { method: 'None', params: {} },
     imbalance: { technique: 'None', params: { k_neighbors: 5 } },
     model: { algorithm: 'RandomForest', hyperparameters: {} }
 });
@@ -200,8 +330,8 @@ const dataset = computed(() => datasetsStore.datasets.find(d => d.id === workflo
 
 // Validation
 const isStepValid = computed(() => {
-  if (currentStep.value === 1) return !!selectedTargetColumn.value; // Must have target
-  if (currentStep.value === 4) return !!config.value.model.algorithm; // Must have algo
+  if (currentStep.value === 0) return !!selectedTargetColumn.value; // Must have target
+  if (currentStep.value === 3) return !!config.value.model.algorithm; // Must have algo
   return true; // Others have defaults
 });
 
@@ -220,8 +350,23 @@ const getStepIconColor = (stepNum: number) => {
     return 'grey-lighten-1';
 };
 
-const getStatusColor = (status: string) => {
-    switch (status) {
+const workflowStatus = computed(() => {
+    if (!workflow.value) return 'Unknown';
+    if (workflow.value.error) return 'Failed';
+    if (workflow.value.results) return 'Completed';
+    
+    switch (workflow.value.currentStep) {
+        case 0: return 'Draft';
+        case 1: return 'Preprocessing';
+        case 2: return 'Balancing';
+        case 3: return 'Training';
+        case 4: return 'Completed';
+        default: return 'Draft';
+    }
+});
+
+const statusColor = computed(() => {
+    switch (workflowStatus.value) {
         case 'Completed': return 'success';
         case 'Failed': return 'error';
         case 'Training': return 'info';
@@ -229,7 +374,7 @@ const getStatusColor = (status: string) => {
         case 'Balancing': return 'info';
         default: return 'grey';
     }
-};
+});
 
 const fetchHeaders = async (storagePath: string) => {
     if (!storagePath || datasetHeaders.value.length > 0) return;
@@ -272,9 +417,10 @@ const onTargetChange = async (newTarget: string) => {
 };
 
 const saveWorkflow = async () => {
-    if (workflow.value && workflow.value.status === 'Draft') {
+    if (workflow.value && workflow.value.currentStep === 0) { // Keep draft logic mostly same, but check steps
         try {
-            await workflowsStore.updateWorkflow(workflowId, { config: config.value });
+             // We update config and also currentStep if we haven't already
+            await workflowsStore.updateWorkflow(workflowId, { config: config.value, currentStep: currentStep.value });
             lastSaved.value = new Date().toLocaleTimeString();
         } catch (e) {
             console.error("Save failed", e);
@@ -286,7 +432,9 @@ const saveWorkflow = async () => {
 const nextStep = async () => {
     if (isStepValid.value) {
         // Explicitly save on navigation
-        await saveWorkflow();
+        // Update currentStep in store as we go
+        await workflowsStore.updateWorkflow(workflowId, { config: config.value, currentStep: currentStep.value + 1 });
+        lastSaved.value = new Date().toLocaleTimeString();
         
         currentStep.value++;
         if (currentStep.value > maxStepReached.value) {
@@ -304,7 +452,7 @@ onMounted(async () => {
     }
 
     // Restore Step
-    if (workflow.value?.currentStep) {
+    if (workflow.value?.currentStep !== undefined) {
         currentStep.value = workflow.value.currentStep;
         if (currentStep.value > maxStepReached.value) {
             maxStepReached.value = currentStep.value;
@@ -325,7 +473,7 @@ watch(() => dataset.value, (newDs) => {
 });
 
 // Auto-save Config & Step
-watch([config, currentStep], async () => {
+watch([config], async () => {
     await saveWorkflow();
 }, { deep: true });
 
@@ -336,7 +484,7 @@ const saveAndRun = async () => {
       return;
     }
     
-    if (currentStep.value !== 5) currentStep.value = 5; 
+    if (currentStep.value !== 4) currentStep.value = 4; // Move to Results
 
     try {
       await workflowsStore.runExperiment(workflowId);
@@ -369,5 +517,13 @@ const saveAndRun = async () => {
 .step-item.disabled {
     opacity: 0.5;
     pointer-events: none;
+}
+
+.glass-card {
+  background: rgba(var(--v-theme-surface), 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(var(--v-border-color), 0.1);
+  transition: all 0.2s ease-in-out;
+  border-radius: 16px;
 }
 </style>

@@ -23,12 +23,26 @@ export interface PipelineConfig {
     scaling: 'MinMax' | 'Standard' | 'Robust' | 'None';
     encoding: 'OneHot' | 'Label' | 'Target' | 'None';
     splitRatio: number;
+    imputerNumeric?: 'mean' | 'median' | 'knn';
+    imputerCategorical?: 'most_frequent' | 'constant';
+    featureConfigs?: Record<string, { strategy: string; params?: any; type: 'numeric' | 'categorical'; transform?: 'none' | 'log' | 'sqrt' | 'yeo-johnson' | 'box-cox'; scaling?: 'Standard' | 'MinMax' | 'Robust' | 'None' }>;
+    droppedFeatures?: string[];
+  };
+  selection: {
+    method: 'None' | 'VarianceThreshold' | 'PCA' | 'SelectKBest';
+    params: {
+      threshold?: number;
+      n_components?: number;
+      k?: number;
+    };
   };
   imbalance: {
-    technique: 'SMOTE' | 'ADASYN' | 'RandomUnder' | 'None';
+    technique: 'SMOTE' | 'ADASYN' | 'RandomUnderSampler' | 'RandomOverSampler' | 'SMOTETomek' | 'SMOTEENN' | 'TomekLinks' | 'ENN' | 'None';
     params: {
       k_neighbors?: number;
+      n_neighbors?: number;
       sampling_strategy?: number | string;
+      replacement?: boolean;
     };
   };
   model: {
@@ -48,7 +62,7 @@ export interface Workflow {
   userId: string;
   datasetId: string;
   name: string;
-  status: 'Draft' | 'Preprocessing' | 'Balancing' | 'Training' | 'Completed' | 'Failed';
+
   storageUsedBytes: number;
   config: PipelineConfig;
   aiRecommendation?: {
@@ -61,6 +75,7 @@ export interface Workflow {
     modelPath?: string;
     confusionMatrixUrl?: string;
     reportPdfUrl?: string;
+    targetEncoderPath?: string;
   };
   results?: {
     accuracy: number;
@@ -69,9 +84,10 @@ export interface Workflow {
     recall: number;
     executionTimeSeconds: number;
   };
+  error?: string; // To track failed state
   createdAt: any;
   updatedAt: any;
-  currentStep?: number;
+  currentStep: number;
 }
 
 export const useWorkflowsStore = defineStore('workflows', () => {
@@ -102,15 +118,15 @@ export const useWorkflowsStore = defineStore('workflows', () => {
           userId: data.userId,
           datasetId: data.datasetId,
           name: data.name,
-          status: data.status,
           storageUsedBytes: data.storageUsedBytes || 0,
           config: data.config || {},
           artifacts: data.artifacts || {},
           results: data.results,
           aiRecommendation: data.aiRecommendation,
+          error: data.error,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
-          currentStep: data.currentStep
+          currentStep: typeof data.currentStep === 'number' ? data.currentStep : 0
         } as Workflow);
       });
 
@@ -135,13 +151,12 @@ export const useWorkflowsStore = defineStore('workflows', () => {
         userId: user.uid,
         datasetId: datasetId,
         name: name,
-        status: 'Draft',
         storageUsedBytes: 0,
         config: initialConfig,
         artifacts: {},
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        currentStep: 1
+        currentStep: 0 // Local Draft
       };
 
       const docRef = await addDoc(collection(db, 'workflows'), newWorkflow);
@@ -190,38 +205,36 @@ export const useWorkflowsStore = defineStore('workflows', () => {
     isLoading.value = true;
     try {
       const workflow = workflows.value.find(w => w.id === workflowId);
-      if (!workflow) throw new Error("Workflow not found"); // Should fetch if strictly not found? Assume loaded.
+      if (!workflow) throw new Error("Workflow not found");
 
       const user = auth.currentUser;
       if (!user) throw new Error("Authentication required");
 
-      await updateWorkflow(workflowId, { status: 'Training' });
+      // While running, we might want to stay on step 3 (Training) or clear error
+      await updateWorkflow(workflowId, { error: undefined }); // Clear previous errors
 
       // Resolve Dataset File Name
-      // We need to check datasetsStore. If not loaded, fetch them.
       if (datasetsStore.datasets.length === 0) {
         await datasetsStore.fetchDatasets();
       }
       const dataset = datasetsStore.datasets.find(d => d.id === workflow.datasetId);
       if (!dataset) throw new Error("Linked dataset not found.");
 
-      // Get correct fileName (backend needs 'fileName' in Form, which might be Display Name OR Actual Name)
       const parts = dataset.storagePath.split('/');
       const actualFileName = parts[parts.length - 1] || dataset.fileName;
 
-      // Prepare Payload
       const formData = new FormData();
       formData.append('fileName', actualFileName);
-      formData.append('targetCol', dataset.targetColumn || 'target'); // Use dataset's target
+      formData.append('targetCol', dataset.targetColumn || 'target');
       formData.append('config', JSON.stringify(workflow.config));
 
-      // Use API Service
       const result = await api.runWorkflow(formData);
 
       await updateWorkflow(workflowId, {
-        status: 'Completed',
+        currentStep: 4, // Completed
         results: result.results,
-        artifacts: result.artifacts
+        artifacts: result.artifacts,
+        error: undefined
       });
 
     } catch (e: any) {
@@ -231,8 +244,8 @@ export const useWorkflowsStore = defineStore('workflows', () => {
         errorMsg = e.response.data.detail;
       }
       error.value = errorMsg;
-      await updateWorkflow(workflowId, { status: 'Failed' });
-      // We will rethrow or handle via UI store later
+      // Mark as failed by setting error
+      await updateWorkflow(workflowId, { error: errorMsg });
       throw new Error(errorMsg);
     } finally {
       isLoading.value = false;

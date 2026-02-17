@@ -266,10 +266,14 @@ export const useDatasetsStore = defineStore('datasets', () => {
     }
   };
 
-  const fetchEDA = async (_id: string, fileName: string) => {
+  const fetchEDA = async (_id: string, fileName: string, targetCol?: string) => {
     const formData = new FormData();
     formData.append('userId', authStore.user?.uid || 'system');
     formData.append('fileName', fileName);
+    if (targetCol) {
+      formData.append('targetCol', targetCol);
+    }
+
 
     try {
       const response = await axios.post(`${PYTHON_API_URL}/perform-eda`, formData);
@@ -305,6 +309,36 @@ export const useDatasetsStore = defineStore('datasets', () => {
     }
   };
 
+  const preprocessDataset = async (dataset: Dataset, targetCol: string, workflowId: string, config: any) => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      let fileName = dataset.fileName;
+      // Handle sample paths or URLs
+      if (dataset.storagePath.startsWith('http')) {
+        const parts = dataset.storagePath.split('/');
+        fileName = parts[parts.length - 1] || dataset.fileName;
+      }
+
+      const formData = new FormData();
+      formData.append('userId', authStore.user?.uid || 'system');
+      formData.append('fileName', fileName);
+      formData.append('targetCol', targetCol);
+      formData.append('workflowId', workflowId);
+      formData.append('config', JSON.stringify(config));
+
+      const response = await axios.post(`${PYTHON_API_URL}/preprocess`, formData);
+      return response.data;
+
+    } catch (e: any) {
+      console.error("Preprocessing error:", e);
+      error.value = "Preprocessing failed: " + (e.response?.data?.detail || e.message);
+      throw e;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
   const totalUserUsageBytes = computed(() => {
     return datasets.value
       .filter(d => !d.isSample && !d.isPublic)
@@ -322,6 +356,7 @@ export const useDatasetsStore = defineStore('datasets', () => {
     deleteDataset,
     totalUserUsageBytes,
     fetchDatasetDetails,
-    fetchEDA
+    fetchEDA,
+    preprocessDataset
   };
 });

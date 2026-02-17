@@ -19,12 +19,21 @@ from fastapi.staticfiles import StaticFiles
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.svm import SVC
-from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, OneHotEncoder
-from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, OneHotEncoder, OrdinalEncoder, RobustScaler, PowerTransformer, FunctionTransformer
+from sklearn.impute import SimpleImputer, KNNImputer
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+# Try importing TargetEncoder (sklearn > 1.3)
+try:
+    from sklearn.preprocessing import TargetEncoder
+except ImportError:
+    TargetEncoder = None
+from sklearn.feature_selection import VarianceThreshold
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix
+from scipy.stats import entropy
+from sklearn.feature_selection import VarianceThreshold, SelectKBest, f_classif, f_regression
+from sklearn.decomposition import PCA
 
 from utils import get_user_storage_usage
 from json_utils import sanitize_for_json
@@ -267,10 +276,34 @@ async def run_experiment(
         else:
              model = RandomForestClassifier()
 
+        # Feature Selection
+        selection_cfg = cfg.get('selection', {'method': 'None'})
+        selector = None
+        
+        if selection_cfg['method'] == 'VarianceThreshold':
+            thresh = float(selection_cfg['params'].get('threshold', 0.0))
+            selector = VarianceThreshold(threshold=thresh)
+        elif selection_cfg['method'] == 'PCA':
+            n_comps = selection_cfg['params'].get('n_components', 0.95)
+            # Handle float (ratio) vs int (count)
+            if n_comps > 1:
+                n_comps = int(n_comps)
+            selector = PCA(n_components=n_comps)
+        elif selection_cfg['method'] == 'SelectKBest':
+            k = int(selection_cfg['params'].get('k', 10))
+            # Default to f_classif for classification
+            selector = SelectKBest(score_func=f_classif, k=k)
+
         # 4. Pipeline Execution
-        clf = Pipeline(steps=[('preprocessor', preprocessor),
-                              # ('sampling', ... ) # Imbalance handling would go here (requires imblearn pipeline)
-                              ('classifier', model)])
+        steps = [('preprocessor', preprocessor)]
+        
+        if selector:
+            steps.append(('selection', selector))
+            
+        # ('sampling', ... ) # Imbalance handling would go here
+        steps.append(('classifier', model))
+        
+        clf = Pipeline(steps=steps)
 
         # Split
         test_size = float(cfg['preprocessing'].get('splitRatio', 0.2))
@@ -443,10 +476,59 @@ async def get_dataset_details(
         print(f"Details Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+def calculate_pca(df, target_col):
+    try:
+        # Select all columns and encode categoricals for PCA visualization
+        # We use a copy to avoid modifying original df if passed by reference (though here it's usually fresh)
+        df_pca = df.copy().dropna()
+        
+        # Limit rows first to speed up processing
+        if len(df_pca) > 2000:
+             df_pca = df_pca.sample(2000, random_state=42)
+             
+        # Encode Categoricals
+        le = LabelEncoder()
+        for col in df_pca.select_dtypes(include=['object', 'category']).columns:
+             df_pca[col] = le.fit_transform(df_pca[col].astype(str))
+             
+        # Now we have all numeric (native or encoded)
+        if df_pca.shape[1] < 2:
+            return []
+            
+        # Standardize
+        scaler = StandardScaler()
+        scaled_data = scaler.fit_transform(df_pca)
+        
+        # PCA
+        pca = PCA(n_components=3)
+        components = pca.fit_transform(scaled_data)
+        
+        # Get targets for coloring
+        targets = []
+        if target_col and target_col in df.columns:
+            targets = df.loc[df_pca.index, target_col].astype(str).tolist()
+        else:
+            targets = ["n/a"] * len(components)
+            
+        # Format
+        plot_data = []
+        for i in range(len(components)):
+            plot_data.append({
+                "x": float(components[i, 0]),
+                "y": float(components[i, 1]),
+                "z": float(components[i, 2]),
+                "target": targets[i]
+            })
+        return plot_data
+    except Exception as e:
+        print(f"PCA Error: {e}")
+        return []
+
 @app.post("/perform-eda")
 async def perform_eda(
     userId: str = Form(...),
-    fileName: str = Form(...)
+    fileName: str = Form(...),
+    targetCol: str = Form(None) # Optional target column
 ):
     try:
         # Resolve path
@@ -460,6 +542,11 @@ async def perform_eda(
 
         # Load Data
         df = pd.read_csv(file_path)
+        
+        # Filter dropped rows if targetCol is known
+        if targetCol and targetCol != 'Unknown' and targetCol in df.columns:
+             df = df.dropna(subset=[targetCol])
+        
         row_count, col_count = df.shape
 
         # Identify Target
@@ -501,6 +588,12 @@ async def perform_eda(
                 
                 # Histogram (10 bins)
                 data_clean = col_data.dropna()
+
+                # ADDED: For numeric columns with few unique values (e.g. binary extraction), treat as categorical for counts
+                if col_data.nunique() < 50:
+                    counts = col_data.value_counts().head(10)
+                    stats_obj['counts'] = {str(k): int(v) for k, v in counts.items()} # Ensure keys are strings for JSON
+
                 if len(data_clean) > 0:
                     hist, bin_edges = np.histogram(data_clean, bins=10)
                     stats_obj['histogram'] = {
@@ -576,7 +669,17 @@ async def perform_eda(
              y = df_rf_clean[target_col]
              
              # Detect Type for RF
-             if df[target_col].nunique() < 20:
+             is_categorical = False
+             target_dtype = df[target_col].dtype
+             
+             if target_dtype == 'object' or target_dtype.name == 'category':
+                 is_categorical = True
+             elif pd.api.types.is_integer_dtype(target_dtype) and df[target_col].nunique() < 20:
+                 is_categorical = True
+             
+             if is_categorical:
+                  # Ensure classes are integers (SimpleImputer might have made them floats)
+                  y = y.astype(int)
                   rf = RandomForestClassifier(n_estimators=10, max_depth=5, random_state=42)
              else:
                   rf = RandomForestRegressor(n_estimators=10, max_depth=5, random_state=42)
@@ -595,13 +698,30 @@ async def perform_eda(
                  })
              feature_importance['scores'] = feats
              feature_importance['target'] = target_col
+        
+        # --- 4. PCA and Target Stats ---
+        if targetCol:
+            pass
+        
+        # Detect Target Col if not provided (simple heuristic: last col)
+        if not targetCol or targetCol == 'Unknown':
+            targetCol = df.columns[-1]
+            
+        pca_data = calculate_pca(df, targetCol)
 
         return sanitize_for_json({
             "fileName": fileName,
             "univariate": univariate,
             "correlation": correlation,
             "featureImportance": feature_importance,
-            "sample": df.head(5000).replace([np.inf, -np.inf], np.nan).fillna("").to_dict(orient='records') # Larger sample for detailed view
+            "sample": df.head(5000).replace([np.inf, -np.inf], np.nan).fillna("").to_dict(orient='records'), # Larger sample for detailed view
+            "targetStats": {
+                "entropy": float(entropy(df[target_col].value_counts(normalize=True))) if target_col and target_col in df.columns else 0,
+                "imbalanceRatio": (df[target_col].value_counts().max() / df[target_col].value_counts().min()) if target_col and target_col in df.columns and len(df[target_col].value_counts()) > 0 else 1,
+                "kurtosis": float(df[target_col].kurtosis()) if target_col and target_col in df.columns and pd.api.types.is_numeric_dtype(df[target_col]) else None,
+                "skew": float(df[target_col].skew()) if target_col and target_col in df.columns and pd.api.types.is_numeric_dtype(df[target_col]) else None
+            },
+            "pca": pca_data
         })
 
     except Exception as e:
@@ -616,6 +736,143 @@ async def get_usage(user_id: str):
         usage = get_user_storage_usage(user_id)
         return {"storageUsedBytes": usage}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/preprocess")
+async def preprocess_data(
+    userId: str = Form(...),
+    fileName: str = Form(...),
+    targetCol: str = Form(...),
+    workflowId: str = Form(...), # New: Workflow ID for unique storage
+    config: str = Form(...)  # JSON string
+):
+    try:
+        from preprocessing import PreprocessingPipeline
+        
+        # Parse Config
+        cfg = json.loads(config)
+        
+        # 1. Load Data
+        if fileName in SAMPLE_TARGETS:
+             file_path = os.path.join(SAMPLES_DIR, fileName)
+        else:
+             file_path = os.path.join(STORAGE_DIR, userId, "datasets", fileName)
+        
+        if not os.path.exists(file_path):
+             raise HTTPException(status_code=404, detail=f"File not found: {fileName}")
+
+        df = pd.read_csv(file_path)
+        
+        # 2. Output Directory
+        output_dir = os.path.join(STORAGE_DIR, userId, "workflows", workflowId, "artifacts", "preprocessing")
+        
+        # 3. Run Pipeline
+        pipeline = PreprocessingPipeline(cfg)
+        result = pipeline.run(df, targetCol, output_dir)
+        
+        # 4. Construct Response
+        result["timestamp"] = datetime.now().isoformat()
+        
+        return sanitize_for_json(result)
+
+    except Exception as e:
+        print(f"Preprocessing Error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/imbalance-analysis")
+async def analyze_imbalance(
+    userId: str = Form(...),
+    workflowId: str = Form(...)
+):
+    try:
+        from analysis import ImbalanceAnalyzer
+        
+         # Locate Preprocessed Data
+        artifacts_dir = os.path.join(STORAGE_DIR, userId, "workflows", workflowId, "artifacts", "preprocessing")
+        X_train_path = os.path.join(artifacts_dir, "X_train.parquet")
+        y_train_path = os.path.join(artifacts_dir, "y_train.parquet")
+        
+        if not os.path.exists(X_train_path) or not os.path.exists(y_train_path):
+             return sanitize_for_json({"status": "NoData"})
+
+        X_train = pd.read_parquet(X_train_path)
+        y_train = pd.read_parquet(y_train_path).iloc[:, 0]
+
+        analyzer = ImbalanceAnalyzer()
+        metrics = analyzer.calculate_metrics(X_train, y_train)
+        
+        return sanitize_for_json(metrics)
+
+    except Exception as e:
+        print(f"Analysis Error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/balance")
+async def balance_data(
+    userId: str = Form(...),
+    workflowId: str = Form(...),
+    config: str = Form(...)  # JSON string
+):
+    try:
+        from balancing import BalancingPipeline
+        from analysis import ImbalanceAnalyzer
+        
+        # 1. Parse Config
+        cfg = json.loads(config)
+        
+        # 2. Locate Artifacts
+        # We need X_train and y_train from the preprocessing step
+        artifacts_dir = os.path.join(STORAGE_DIR, userId, "workflows", workflowId, "artifacts", "preprocessing")
+        
+        X_train_path = os.path.join(artifacts_dir, "X_train.parquet")
+        y_train_path = os.path.join(artifacts_dir, "y_train.parquet")
+        
+        if not os.path.exists(X_train_path) or not os.path.exists(y_train_path):
+             raise HTTPException(status_code=404, detail="Preprocessed training data not found. Run preprocessing first.")
+             
+        # 3. Load Data
+        X_train = pd.read_parquet(X_train_path)
+        y_train = pd.read_parquet(y_train_path).iloc[:, 0] # Series
+        
+        # 4. Initialize Balancing Pipeline
+        balancing_cfg = cfg.get('imbalance', {})
+        pipeline = BalancingPipeline(balancing_cfg)
+        
+        # 5. Apply Balancing
+        X_resampled, y_resampled, metadata = pipeline.apply_balancing(X_train, y_train)
+        
+        # 6. Save Results
+        balancing_dir = os.path.join(STORAGE_DIR, userId, "workflows", workflowId, "artifacts", "balancing")
+        os.makedirs(balancing_dir, exist_ok=True)
+        
+        X_resampled.to_parquet(os.path.join(balancing_dir, "X_train_resampled.parquet"))
+        pd.DataFrame(y_resampled, columns=['target']).to_parquet(os.path.join(balancing_dir, "y_train_resampled.parquet"))
+        
+        # 7. Post-Processing Analysis (PCA for visualization)
+        analyzer = ImbalanceAnalyzer()
+        # We only need PCA coordinates for the balanced dataset to plot it
+        pca_coords = analyzer.get_pca_coordinates(X_resampled, y_resampled)
+
+        # 8. Return Metadata
+        return sanitize_for_json({
+            "status": "Completed",
+            "distribution": metadata,
+            "shape": {
+                "before": list(X_train.shape),
+                "after": list(X_resampled.shape)
+            },
+            "pca": pca_coords, 
+            "artifactsPath": balancing_dir
+        })
+
+    except Exception as e:
+        print(f"Balancing Error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
