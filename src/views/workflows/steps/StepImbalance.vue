@@ -25,7 +25,7 @@
     <div class="flex-grow-1 overflow-hidden d-flex">
         
         <!-- LEFT: Controls -->
-        <div class="w-33 border-r h-100 overflow-y-auto bg-surface pa-4" style="min-width: 350px;">
+        <div class="w-25 border-r h-100 overflow-y-auto bg-surface pa-4" style="min-width: 280px;">
             
             <!-- Category Selection -->
             <div class="text-subtitle-2 font-weight-bold mb-3 text-uppercase text-medium-emphasis">Select Strategy</div>
@@ -100,7 +100,12 @@
                      <template v-slot:item="{ props, item }">
                         <v-list-item v-bind="props" :subtitle="item.raw.subtitle" :disabled="item.raw.disabled" :class="{'text-medium-emphasis': item.raw.disabled}">
                             <template v-slot:append v-if="item.raw.disabled">
-                                <v-icon size="small" color="error">mdi-block-helper</v-icon>
+                                <v-tooltip location="start">
+                                    <template v-slot:activator="{ props }">
+                                        <v-icon v-bind="props" size="small" color="error">mdi-block-helper</v-icon>
+                                    </template>
+                                    <span>{{ item.raw.reason }}</span>
+                                </v-tooltip>
                             </template>
                         </v-list-item>
                     </template>
@@ -132,10 +137,7 @@
                 </div>
             </div>
 
-            <!-- Pre-run Recommendation -->
-            <v-alert v-if="recommendation" type="info" variant="tonal" class="mb-4 text-caption" density="compact">
-                <strong>Recommendation:</strong> {{ recommendation }}
-            </v-alert>
+
 
             <v-btn
                 block
@@ -147,7 +149,7 @@
                 elevation="2"
                 prepend-icon="mdi-play"
             >
-                Apply Balancing
+                Proceed
             </v-btn>
             
              <v-alert v-if="error" type="error" variant="tonal" class="mt-4 text-caption">
@@ -205,7 +207,7 @@
                      <v-col cols="12">
                          <v-card variant="outlined" class="bg-surface h-100 d-flex flex-column">
                              <v-card-title class="text-subtitle-2 d-flex justify-space-between">
-                                 <span>2D PCA Projection (Original)</span>
+                                 <span>3D PCA Projection (Original)</span>
                                  <span class="text-caption text-medium-emphasis">Visualizes class separability</span>
                                  </v-card-title>
                              <div id="chart-analysis-pca" class="flex-grow-1"></div>
@@ -337,13 +339,20 @@ const availableTechniques = computed(() => {
     // @ts-ignore
     const categoryOptions = techniques[selectedCategory.value] || [];
     
-    // If we have analysis result, filter based on valid_techniques
-    if (analysisResult.value && analysisResult.value.valid_techniques) {
-        const validSet = new Set(analysisResult.value.valid_techniques);
-        return categoryOptions.map((opt: any) => ({
-            ...opt,
-            disabled: !validSet.has(opt.value)
-        }));
+    // If we have analysis result, filter based on technique_status
+    if (analysisResult.value && analysisResult.value.technique_status) {
+        const statusMap = analysisResult.value.technique_status;
+        return categoryOptions.map((opt: any) => {
+            const status = statusMap[opt.value];
+            if (status) {
+                return {
+                    ...opt,
+                    disabled: !status.valid,
+                    reason: status.reason
+                };
+            }
+            return opt;
+        });
     }
     
     return categoryOptions;
@@ -362,6 +371,12 @@ const fetchAnalysis = async () => {
         
         analysisResult.value = res;
         
+        // Default to "None" only if not already set or invalid?
+        // User requested default "None".
+        // @ts-ignore
+        props.modelValue.technique = 'None';
+        selectedCategory.value = 'none';
+
         nextTick(() => {
             plotDist('chart-analysis-dist', res.distribution);
             plotPCA('chart-analysis-pca', res.pca);
@@ -385,21 +400,7 @@ const irColor = computed(() => {
     return 'error';
 });
 
-const recommendation = computed(() => {
-    if (!analysisResult.value) return null;
-    const { complexity, shape, imbalance_ratio } = analysisResult.value;
-    const rows = shape[0];
-    const outliers = complexity?.rare || 0;
-    
-    if (rows > 100000) return "Large dataset detected. Random Undersampling is recommended to reduce training time.";
-    if (rows < 1000) return "Small dataset detected. Avoid Undersampling (risk of data loss). Use SMOTE or ADASYN.";
-    
-    if (outliers > 20) return "High outlier count in minority class. ADASYN (Adaptive) or Hybrid methods (SMOTE+ENN) are recommended.";
-    
-    if (imbalance_ratio > 20) return "Extreme imbalance. Hybrid methods or Combined Over/Under sampling recommended.";
-    
-    return "Standard SMOTE is a safe starting point.";
-});
+
 
 
 // --- PLOTTING HELPERS ---
@@ -432,22 +433,31 @@ const plotPCA = (id: string, pca: any) => {
     const colors = ['#1976D2', '#FF4081', '#66BB6A', '#FFA726'];
     
     uniqueLabels.forEach((label: any, i) => {
+        // @ts-ignore
         const idx = pca.labels.map((l: any, idx: number) => l === label ? idx : -1).filter((i: number) => i !== -1);
         traces.push({
+            // @ts-ignore
             x: idx.map((i: number) => pca.x[i]),
+            // @ts-ignore
             y: idx.map((i: number) => pca.y[i]),
+            // @ts-ignore
+            z: idx.map((i: number) => pca.z[i]),
             mode: 'markers',
-            type: 'scattergl', // WebGL for performance
+            type: 'scatter3d', 
             name: `Class ${label}`,
-            marker: { size: 6, opacity: 0.7, color: colors[i % colors.length] }
+            marker: { size: 4, opacity: 0.8, color: colors[i % colors.length] }
         });
     });
 
     Plotly.newPlot(id, traces, {
-        margin: { l: 30, r: 10, b: 30, t: 30 },
-        legend: { orientation: 'h', y: -0.2 },
-        hovermode: 'closest',
-        dragmode: 'pan'
+        margin: { l: 0, r: 0, b: 0, t: 0 },
+        legend: { orientation: 'h', y: 0.1 },
+        scene: {
+            xaxis: { title: 'PC1' },
+            yaxis: { title: 'PC2' },
+            zaxis: { title: 'PC3' }
+        },
+        height: 400
     }, { displayModeBar: true, responsive: true });
 };
 

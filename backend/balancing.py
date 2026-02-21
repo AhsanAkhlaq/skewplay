@@ -44,6 +44,13 @@ class BalancingPipeline:
             
         # Get minority count for safety checks
         counts = y_train.value_counts()
+        if counts.empty:
+             return X_train, y_train, {
+                "before": {},
+                "after": {},
+                "technique": "None (Empty Dataset)"
+            }
+            
         min_class_count = counts.min()
         
         self.resampler = self._get_resampler_with_checks(min_class_count, categorical_features_indices)

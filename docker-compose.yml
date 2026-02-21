@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      # Bind mount the frontend directory
+      - ./:/app
+      # Create an anonymous volume for node_modules so that local Windows binaries don't conflict with Linux container binaries
+      - /app/node_modules
+    # Environment variable to enable hot reloading in Docker, especially helpful on Windows/WSL
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # Bind mount the backend directory
+      - ./backend:/app

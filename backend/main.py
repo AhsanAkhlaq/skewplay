@@ -1,3 +1,7 @@
+
+import faulthandler
+faulthandler.enable()
+
 import os
 import shutil
 import json
@@ -16,24 +20,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 # ML & Stats Imports
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression, LinearRegression
-from sklearn.svm import SVC
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, OneHotEncoder, OrdinalEncoder, RobustScaler, PowerTransformer, FunctionTransformer
 from sklearn.impute import SimpleImputer, KNNImputer
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-# Try importing TargetEncoder (sklearn > 1.3)
-try:
-    from sklearn.preprocessing import TargetEncoder
-except ImportError:
-    TargetEncoder = None
-from sklearn.feature_selection import VarianceThreshold
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix
-from scipy.stats import entropy
+from sklearn.preprocessing import TargetEncoder
 from sklearn.feature_selection import VarianceThreshold, SelectKBest, f_classif, f_regression
 from sklearn.decomposition import PCA
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, roc_auc_score
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from scipy.stats import entropy
+
+from preprocessing import PreprocessingPipeline
+from balancing import BalancingPipeline
+from models import ModelFactory
+from analysis import ImbalanceAnalyzer
 
 from utils import get_user_storage_usage
 from json_utils import sanitize_for_json
@@ -197,170 +199,6 @@ async def upload_file(
         print(f"Error uploading file: {e}")
         raise HTTPException(status_code=500, detail="Failed to upload file")    
 
-@app.post("/run")
-async def run_experiment(
-    userId: str = Form(...),
-    fileName: str = Form(...),
-    targetCol: str = Form(...),
-    config: str = Form(...)  # JSON string
-):
-
-
-    try:
-        # Parse Config
-        # Config structure matches PipelineConfig interface
-        cfg = json.loads(config)
-        
-        # 1. Load Data
-        # Check if sample
-        if fileName in SAMPLE_TARGETS:
-             file_path = os.path.join(SAMPLES_DIR, fileName)
-        else:
-             file_path = os.path.join(STORAGE_DIR, userId, "datasets", fileName)
-        
-        if not os.path.exists(file_path):
-             raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
-
-        df = pd.read_csv(file_path)
-        
-        # 2. Preprocessing
-        X = df.drop(columns=[targetCol])
-        y = df[targetCol]
-        
-        # Numerical/Categorical Split
-        numeric_features = X.select_dtypes(include=['int64', 'float64']).columns
-        categorical_features = X.select_dtypes(include=['object']).columns
-
-        # Transformers
-        numeric_transformer = Pipeline(steps=[
-            ('imputer', SimpleImputer(strategy='median')),
-            ('scaler', StandardScaler() if cfg['preprocessing']['scaling'] == 'Standard' else 
-                       MinMaxScaler() if cfg['preprocessing']['scaling'] == 'MinMax' else None)
-        ])
-        
-        categorical_transformer = Pipeline(steps=[
-             ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
-             ('encoder', OneHotEncoder(handle_unknown='ignore') if cfg['preprocessing']['encoding'] == 'OneHot' else 
-                         None) # Label encoding usually for target, or Ordinal for features. Simplified here.
-        ])
-
-        # Filter out None steps
-        if cfg['preprocessing']['scaling'] == 'None':
-             numeric_transformer.steps.pop(-1) # remove scaler
-        if cfg['preprocessing']['encoding'] == 'None':
-             categorical_transformer.steps.pop(-1)
-
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ('num', numeric_transformer, numeric_features),
-                ('cat', categorical_transformer, categorical_features)
-            ])
-
-        # 3. Model Selection
-        algo = cfg['model']['algorithm']
-        params = cfg['model']['hyperparameters']
-        
-        if algo == 'RandomForest':
-            model = RandomForestClassifier(
-                n_estimators=int(params.get('n_estimators', 100)),
-                max_depth=int(params.get('max_depth', 10)) if params.get('max_depth') else None
-            )
-        elif algo == 'XGBoost':
-            model = GradientBoostingClassifier( # Using sklearn GBDT as placeholder for XGB interaction
-                n_estimators=int(params.get('n_estimators', 100))
-            )
-        elif algo == 'LogisticRegression':
-            model = LogisticRegression(C=float(params.get('C', 1.0)))
-        elif algo == 'SVM':
-            model = SVC(C=float(params.get('C', 1.0)), kernel=params.get('kernel', 'rbf'))
-        else:
-             model = RandomForestClassifier()
-
-        # Feature Selection
-        selection_cfg = cfg.get('selection', {'method': 'None'})
-        selector = None
-        
-        if selection_cfg['method'] == 'VarianceThreshold':
-            thresh = float(selection_cfg['params'].get('threshold', 0.0))
-            selector = VarianceThreshold(threshold=thresh)
-        elif selection_cfg['method'] == 'PCA':
-            n_comps = selection_cfg['params'].get('n_components', 0.95)
-            # Handle float (ratio) vs int (count)
-            if n_comps > 1:
-                n_comps = int(n_comps)
-            selector = PCA(n_components=n_comps)
-        elif selection_cfg['method'] == 'SelectKBest':
-            k = int(selection_cfg['params'].get('k', 10))
-            # Default to f_classif for classification
-            selector = SelectKBest(score_func=f_classif, k=k)
-
-        # 4. Pipeline Execution
-        steps = [('preprocessor', preprocessor)]
-        
-        if selector:
-            steps.append(('selection', selector))
-            
-        # ('sampling', ... ) # Imbalance handling would go here
-        steps.append(('classifier', model))
-        
-        clf = Pipeline(steps=steps)
-
-        # Split
-        test_size = float(cfg['preprocessing'].get('splitRatio', 0.2))
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
-
-        clf.fit(X_train, y_train)
-        
-        # 5. Evaluation
-        y_pred = clf.predict(X_test)
-        
-        # Metrics
-        # Simple heuristic: if regression, these will fail. Assume classification for now as per "imbalance" context.
-        metrics = {
-            "accuracy": round(accuracy_score(y_test, y_pred), 4),
-            "f1Score": round(f1_score(y_test, y_pred, average='weighted'), 4),
-            "precision": round(precision_score(y_test, y_pred, average='weighted'), 4),
-            "recall": round(recall_score(y_test, y_pred, average='weighted'), 4),
-            "executionTimeSeconds": 0.5 # Mock time
-        }
-        
-        # 6. Artifacts
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        artifacts_dir = os.path.join(STORAGE_DIR, userId, "artifacts", timestamp)
-        os.makedirs(artifacts_dir, exist_ok=True)
-        
-        # Save Model
-        model_filename = "model.joblib"
-        joblib.dump(clf, os.path.join(artifacts_dir, model_filename))
-        
-        # Save Confusion Matrix
-        cm = confusion_matrix(y_test, y_pred)
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-        plt.title('Confusion Matrix')
-        plt.ylabel('True Label')
-        plt.xlabel('Predicted Label')
-        cm_filename = "confusion_matrix.png"
-        plt.savefig(os.path.join(artifacts_dir, cm_filename))
-        plt.close()
-
-        # URLs
-        artifacts = {
-             "modelPath": f"http://localhost:8000/storage/{userId}/artifacts/{timestamp}/{model_filename}",
-             "confusionMatrixUrl": f"http://localhost:8000/storage/{userId}/artifacts/{timestamp}/{cm_filename}",
-        }
-
-        return sanitize_for_json({
-            "status": "Completed",
-            "results": metrics,
-            "artifacts": artifacts
-        })
-
-    except Exception as e:
-        print(f"Run Error: {e}")
-        # Return error structure or raise
-        raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/reanalyze")
 async def reanalyze_dataset(
@@ -485,7 +323,7 @@ def calculate_pca(df, target_col):
         # Limit rows first to speed up processing
         if len(df_pca) > 2000:
              df_pca = df_pca.sample(2000, random_state=42)
-             
+        print("4.1")    
         # Encode Categoricals
         le = LabelEncoder()
         for col in df_pca.select_dtypes(include=['object', 'category']).columns:
@@ -494,31 +332,33 @@ def calculate_pca(df, target_col):
         # Now we have all numeric (native or encoded)
         if df_pca.shape[1] < 2:
             return []
-            
+        print("4.2")    
         # Standardize
         scaler = StandardScaler()
         scaled_data = scaler.fit_transform(df_pca)
-        
+        print("4.3")
         # PCA
-        pca = PCA(n_components=3)
+        n_comps = min(3, scaled_data.shape[0], scaled_data.shape[1])
+        pca = PCA(n_components=n_comps)
         components = pca.fit_transform(scaled_data)
-        
+        print("4.4")
         # Get targets for coloring
         targets = []
         if target_col and target_col in df.columns:
             targets = df.loc[df_pca.index, target_col].astype(str).tolist()
         else:
             targets = ["n/a"] * len(components)
-            
+        print("4.5")    
         # Format
         plot_data = []
         for i in range(len(components)):
             plot_data.append({
-                "x": float(components[i, 0]),
-                "y": float(components[i, 1]),
-                "z": float(components[i, 2]),
+                "x": float(components[i, 0]) if n_comps > 0 else 0.0,
+                "y": float(components[i, 1]) if n_comps > 1 else 0.0,
+                "z": float(components[i, 2]) if n_comps > 2 else 0.0,
                 "target": targets[i]
             })
+        print("4.6")
         return plot_data
     except Exception as e:
         print(f"PCA Error: {e}")
@@ -532,6 +372,7 @@ async def perform_eda(
 ):
     try:
         # Resolve path
+        print(1)
         if fileName in SAMPLE_TARGETS:
              file_path = os.path.join(SAMPLES_DIR, fileName)
         else:
@@ -565,7 +406,7 @@ async def perform_eda(
         univariate = {}
         numeric_cols = df.select_dtypes(include=['number']).columns
         categorical_cols = df.select_dtypes(include=['object', 'category']).columns
-        
+        print(2)
         for col in df.columns:
             col_data = df[col]
             stats_obj = {}
@@ -623,7 +464,7 @@ async def perform_eda(
                 stats_obj['counts'] = counts.to_dict()
                 
             univariate[col] = stats_obj
-
+        print(3)
         # --- 2. Bivariate (Correlation) ---
         correlation = {}
         if len(numeric_cols) > 1:
@@ -698,7 +539,7 @@ async def perform_eda(
                  })
              feature_importance['scores'] = feats
              feature_importance['target'] = target_col
-        
+        print(4)
         # --- 4. PCA and Target Stats ---
         if targetCol:
             pass
@@ -708,7 +549,7 @@ async def perform_eda(
             targetCol = df.columns[-1]
             
         pca_data = calculate_pca(df, targetCol)
-
+        print(5)
         return sanitize_for_json({
             "fileName": fileName,
             "univariate": univariate,
@@ -818,8 +659,6 @@ async def balance_data(
     config: str = Form(...)  # JSON string
 ):
     try:
-        from balancing import BalancingPipeline
-        from analysis import ImbalanceAnalyzer
         
         # 1. Parse Config
         cfg = json.loads(config)
@@ -874,6 +713,182 @@ async def balance_data(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/run")
+async def run_experiment(
+    userId: str = Form(...),
+    workflowId: str = Form(...),
+    fileName: str = Form(...),
+    targetCol: str = Form(...),
+    config: str = Form(...)  # JSON string
+):
+    try:
+        # Parse Config
+        cfg = json.loads(config)
+        
+        # Preprocessing artifacts
+        pp_artifacts_dir = os.path.join(STORAGE_DIR, userId, "workflows", workflowId, "artifacts", "preprocessing")
+        
+        # Load test data from preprocessing
+        X_test_path = os.path.join(pp_artifacts_dir, "X_test.parquet")
+        y_test_path = os.path.join(pp_artifacts_dir, "y_test.parquet")
+        
+        if not os.path.exists(X_test_path) or not os.path.exists(y_test_path):
+             raise HTTPException(status_code=404, detail="Preprocessed test data not found. Run preprocessing first.")
+             
+        X_test = pd.read_parquet(X_test_path)
+        y_test = pd.read_parquet(y_test_path).iloc[:, 0]
+        
+        # Check if balancing was applied
+        balancing_cfg = cfg.get('imbalance', {})
+        if balancing_cfg.get('technique', 'None') != 'None':
+             bal_artifacts_dir = os.path.join(STORAGE_DIR, userId, "workflows", workflowId, "artifacts", "balancing")
+             X_train_path = os.path.join(bal_artifacts_dir, "X_train_resampled.parquet")
+             y_train_path = os.path.join(bal_artifacts_dir, "y_train_resampled.parquet")
+             if not os.path.exists(X_train_path) or not os.path.exists(y_train_path):
+                  raise HTTPException(status_code=404, detail="Balanced training data not found. Run balancing first.")
+        else:
+             X_train_path = os.path.join(pp_artifacts_dir, "X_train.parquet")
+             y_train_path = os.path.join(pp_artifacts_dir, "y_train.parquet")
+             if not os.path.exists(X_train_path) or not os.path.exists(y_train_path):
+                  raise HTTPException(status_code=404, detail="Preprocessed training data not found. Run preprocessing first.")
+             
+        X_final_train = pd.read_parquet(X_train_path)
+        y_final_train = pd.read_parquet(y_train_path).iloc[:, 0]
+
+        # 4. Model Initialization & Training
+        model_cfg = cfg.get('model', {})
+        algo = model_cfg.get('algorithm', 'RandomForest')
+        params = model_cfg.get('hyperparameters', {})
+        
+        model = ModelFactory.get_model(algo, params)
+
+        # Fit
+        model.fit(X_final_train, y_final_train)
+
+        # 5. Evaluation
+        is_multiclass = len(np.unique(y_test)) > 2
+        y_pred = model.predict(X_test)
+        
+        y_prob = None
+        if hasattr(model, "predict_proba"):
+             y_prob = model.predict_proba(X_test)
+             if not is_multiclass:
+                  y_prob = y_prob[:, 1]
+        
+        acc = accuracy_score(y_test, y_pred)
+        
+        if is_multiclass:
+            f1_metric = f1_score(y_test, y_pred, average='weighted')
+            prec_metric = precision_score(y_test, y_pred, average='weighted')
+            rec_metric = recall_score(y_test, y_pred, average='weighted')
+            g_mean = 0.0 # G-Mean is complex for multiclass, defaulting to 0 or macro-avg
+            pr_auc = 0.0 # PR-AUC natively isn't singular for multiclass without binarization
+        else:
+            # Assume minority class is 1 or second distinct value
+            pos_label = np.unique(y_test)[-1] if 1 not in np.unique(y_test) else 1
+            f1_metric = f1_score(y_test, y_pred, pos_label=pos_label, average='binary')
+            prec_metric = precision_score(y_test, y_pred, pos_label=pos_label, average='binary')
+            rec_metric = recall_score(y_test, y_pred, pos_label=pos_label, average='binary')
+            
+            tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+            sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0
+            specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+            g_mean = (sensitivity * specificity) ** 0.5
+            
+            pr_auc = 0.0
+            if y_prob is not None:
+                from sklearn.metrics import average_precision_score
+                pr_auc = average_precision_score(y_test, y_prob)
+
+        metrics = {
+            "accuracy": round(acc, 4),
+            "f1Score": round(f1_metric, 4),
+            "precision": round(prec_metric, 4),
+            "recall": round(rec_metric, 4),
+            "prAuc": round(pr_auc, 4),
+            "gMean": round(g_mean, 4),
+            "executionTimeSeconds": 0.5 
+        }
+        
+        # 6. Save Artifacts strictly under workflow artifacts correctly
+        artifacts_dir = os.path.join(STORAGE_DIR, userId, "workflows", workflowId, "artifacts", "model")
+        os.makedirs(artifacts_dir, exist_ok=True)
+        
+        # Save Model
+        model_filename = "model.joblib"
+        joblib.dump(model, os.path.join(artifacts_dir, model_filename))
+        
+        # Save Confusion Matrix
+        cm = confusion_matrix(y_test, y_pred)
+        plt.figure(figsize=(6, 5))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+        plt.title(f'Confusion Matrix ({algo})')
+        plt.ylabel('True Label')
+        plt.xlabel('Predicted Label')
+        cm_filename = "confusion_matrix.png"
+        plt.savefig(os.path.join(artifacts_dir, cm_filename))
+        plt.close()
+
+        # Save Precision-Recall Curve (only for binary with proba)
+        pr_curve_filename = ""
+        if y_prob is not None and not is_multiclass:
+             from sklearn.metrics import PrecisionRecallDisplay
+             plt.figure(figsize=(6, 5))
+             PrecisionRecallDisplay.from_predictions(y_test, y_prob, name=algo)
+             plt.title("Precision-Recall Curve")
+             pr_curve_filename = "pr_curve.png"
+             plt.savefig(os.path.join(artifacts_dir, pr_curve_filename))
+             plt.close()
+
+
+        # Save Feature Importance (if available)
+        feat_imp_filename = ""
+        feature_names = X_test.columns.tolist() if hasattr(X_test, 'columns') else [f"f{i}" for i in range(X_test.shape[1])]
+        
+        importances = None
+        if hasattr(model, "feature_importances_"):
+             importances = model.feature_importances_
+        elif hasattr(model, "coef_"):
+             importances = np.abs(model.coef_[0])
+             
+        if importances is not None:
+             # Top 20
+             indices = np.argsort(importances)[::-1][:20]
+             top_feats = [feature_names[i] for i in indices]
+             top_imps = importances[indices]
+             
+             plt.figure(figsize=(8, 6))
+             sns.barplot(x=top_imps, y=top_feats, palette="viridis")
+             plt.title("Feature Importance (Top 20)")
+             plt.xlabel("Importance")
+             feat_imp_filename = "feature_importance.png"
+             plt.tight_layout()
+             plt.savefig(os.path.join(artifacts_dir, feat_imp_filename))
+             plt.close()
+
+        # URLs
+        artifacts = {
+             "modelPath": f"http://localhost:8000/storage/{userId}/workflows/{workflowId}/artifacts/model/{model_filename}",
+             "confusionMatrixUrl": f"http://localhost:8000/storage/{userId}/workflows/{workflowId}/artifacts/model/{cm_filename}",
+             "prCurveUrl": f"http://localhost:8000/storage/{userId}/workflows/{workflowId}/artifacts/model/{pr_curve_filename}" if pr_curve_filename else None,
+             "featureImportanceUrl": f"http://localhost:8000/storage/{userId}/workflows/{workflowId}/artifacts/model/{feat_imp_filename}" if feat_imp_filename else None,
+        }
+
+        return sanitize_for_json({
+            "status": "Completed",
+            "results": metrics,
+            "artifacts": artifacts
+        })
+
+    except Exception as e:
+        print(f"Run Error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 if __name__ == "__main__":
     import uvicorn

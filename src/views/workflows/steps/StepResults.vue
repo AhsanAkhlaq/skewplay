@@ -5,40 +5,85 @@
     <div v-if="workflowStatus === 'Completed' && workflow?.results">
         <!-- Metrics Cards -->
         <v-row class="mb-6">
-          <v-col cols="12" sm="3">
-              <v-card class="glass-card pa-4 text-center">
-                <div class="text-h4 font-weight-bold text-primary mb-1">{{ (workflow!.results!.accuracy * 100).toFixed(1) }}%</div>
+          <v-col cols="12" md="4" lg="2">
+              <v-card class="glass-card pa-4 text-center h-100">
+                <div class="text-h5 font-weight-bold text-primary mb-1">{{ (workflow!.results!.accuracy * 100).toFixed(1) }}%</div>
                 <div class="text-caption font-weight-bold text-uppercase text-medium-emphasis">Accuracy</div>
               </v-card>
           </v-col>
-          <v-col cols="12" sm="3">
-              <v-card class="glass-card pa-4 text-center">
-                <div class="text-h4 font-weight-bold text-info mb-1">{{ (workflow!.results!.f1Score * 100).toFixed(1) }}%</div>
-                <div class="text-caption font-weight-bold text-uppercase text-medium-emphasis">F1 Score</div>
+          <v-col cols="12" md="4" lg="2">
+              <v-card class="glass-card pa-4 text-center h-100">
+                <div class="text-h5 font-weight-bold text-info mb-1">{{ (workflow!.results!.f1Score * 100).toFixed(1) }}%</div>
+                <div class="text-caption font-weight-bold text-uppercase text-medium-emphasis">F1 (Minority)</div>
               </v-card>
           </v-col>
-          <v-col cols="12" sm="3">
-              <v-card class="glass-card pa-4 text-center">
-                  <div class="text-h4 font-weight-bold text-purple mb-1">{{ (workflow!.results!.precision * 100).toFixed(1) }}%</div>
-                  <div class="text-caption font-weight-bold text-uppercase text-medium-emphasis">Precision</div>
+          <v-col cols="12" md="4" lg="2">
+              <v-card class="glass-card pa-4 text-center h-100">
+                <div class="text-h5 font-weight-bold text-purple mb-1">{{ (workflow!.results!.precision * 100).toFixed(1) }}%</div>
+                <div class="text-caption font-weight-bold text-uppercase text-medium-emphasis">Precision (Min)</div>
               </v-card>
             </v-col>
-            <v-col cols="12" sm="3">
-              <v-card class="glass-card pa-4 text-center">
-                  <div class="text-h4 font-weight-bold text-orange mb-1">{{ (workflow!.results!.recall * 100).toFixed(1) }}%</div>
-                  <div class="text-caption font-weight-bold text-uppercase text-medium-emphasis">Recall</div>
+            <v-col cols="12" md="4" lg="2">
+              <v-card class="glass-card pa-4 text-center h-100">
+                  <div class="text-h5 font-weight-bold text-orange mb-1">{{ (workflow!.results!.recall * 100).toFixed(1) }}%</div>
+                  <div class="text-caption font-weight-bold text-uppercase text-medium-emphasis">Recall (Sens)</div>
+              </v-card>
+            </v-col>
+            <v-col cols="12" md="4" lg="2" v-if="workflow!.results!.prAuc !== undefined">
+              <v-card class="glass-card pa-4 text-center h-100">
+                  <div class="text-h5 font-weight-bold text-teal mb-1">{{ (workflow!.results!.prAuc * 100).toFixed(1) }}%</div>
+                  <div class="text-caption font-weight-bold text-uppercase text-medium-emphasis">PR-AUC</div>
+              </v-card>
+            </v-col>
+            <v-col cols="12" md="4" lg="2" v-if="workflow!.results!.gMean !== undefined">
+              <v-card class="glass-card pa-4 text-center h-100">
+                  <div class="text-h5 font-weight-bold text-pink mb-1">{{ (workflow!.results!.gMean * 100).toFixed(1) }}%</div>
+                  <div class="text-caption font-weight-bold text-uppercase text-medium-emphasis">G-Mean</div>
               </v-card>
             </v-col>
         </v-row>
 
-        <div v-if="workflow!.artifacts.confusionMatrixUrl" class="mb-6">
-          <h3 class="text-h6 font-weight-bold mb-4">Confusion Matrix</h3>
-          <v-img 
-              :src="workflow!.artifacts.confusionMatrixUrl" 
-              max-height="400" 
-              class="rounded-lg border bg-surface"
-          ></v-img>
-        </div>
+        <!-- Visualizations Grid -->
+        <v-row>
+            <!-- Confusion Matrix -->
+            <v-col cols="12" md="4" v-if="workflow!.artifacts.confusionMatrixUrl">
+                <v-card class="glass-card pa-4 h-100">
+                    <h3 class="text-subtitle-1 font-weight-bold mb-4">Confusion Matrix</h3>
+                    <v-img 
+                        :src="workflow!.artifacts.confusionMatrixUrl" 
+                        aspect-ratio="1"
+                        class="rounded-lg border bg-surface"
+                        cover
+                    ></v-img>
+                </v-card>
+            </v-col>
+            
+            <!-- PR Curve -->
+            <v-col cols="12" md="4" v-if="workflow!.artifacts.prCurveUrl">
+                <v-card class="glass-card pa-4 h-100">
+                    <h3 class="text-subtitle-1 font-weight-bold mb-4">PR Curve</h3>
+                    <v-img 
+                        :src="workflow!.artifacts.prCurveUrl" 
+                        aspect-ratio="1"
+                        class="rounded-lg border bg-surface"
+                        cover
+                    ></v-img>
+                </v-card>
+            </v-col>
+            
+            <!-- Feature Importance -->
+            <v-col cols="12" md="4" v-if="workflow!.artifacts.featureImportanceUrl">
+                <v-card class="glass-card pa-4 h-100">
+                    <h3 class="text-subtitle-1 font-weight-bold mb-4">Feature Importance</h3>
+                    <v-img 
+                        :src="workflow!.artifacts.featureImportanceUrl" 
+                        aspect-ratio="1"
+                        class="rounded-lg border bg-surface"
+                        cover
+                    ></v-img>
+                </v-card>
+            </v-col>
+        </v-row>
         
         <div class="mt-6 text-center">
             <v-btn color="secondary" variant="outlined" prepend-icon="mdi-download" href="#">Download Model</v-btn>

@@ -351,18 +351,19 @@
         <v-window-item value="encoding" class="h-100" :disabled="!step2Complete">
              <div class="d-flex flex-column h-100 pa-6 bg-grey-lighten-5 overflow-y-auto">
                  
-                 <!-- Helper Text (Teleported to Sidebar) -->
-                 <Teleport to="#teleport-explainer">
-                    <div class="text-caption text-medium-emphasis fade-enter-active">
-                        <div class="text-subtitle-2 font-weight-bold mb-2 text-primary">Categorical Encoding</div>
-                        <p class="mb-2">Convert text labels into numbers.</p>
-                        <ul class="pl-4 mb-2">
-                            <li><strong>OneHot:</strong> Creates binary columns (good for low cardinality).</li>
-                            <li><strong>Ordinal:</strong> Assigns integer IDs (good for trees).</li>
-                            <li><strong>Target:</strong> Uses target mean (good for high cardinality).</li>
-                        </ul>
+                 <!-- Helper Text (Inline) -->
+                 <div class="mb-4 pa-4 bg-blue-lighten-5 rounded-lg border-dashed border-primary">
+                    <div class="d-flex align-center mb-2">
+                        <v-icon color="primary" class="mr-2">mdi-information-outline</v-icon>
+                        <div class="text-subtitle-2 font-weight-bold text-primary">Categorical Encoding</div>
                     </div>
-                 </Teleport>
+                    <p class="text-caption mb-2">Convert text labels into numbers for machine learning algorithms.</p>
+                    <div class="d-flex gap-4 text-caption text-medium-emphasis">
+                        <div><strong>OneHot:</strong> Binary columns (low cardinality)</div>
+                        <div><strong>Ordinal:</strong> Integer IDs (tree models)</div>
+                        <div><strong>Target:</strong> Target mean (high cardinality)</div>
+                    </div>
+                 </div>
 
                  <!-- SECTION: Categorical Features -->
                  <div>
@@ -873,66 +874,7 @@
     <v-snackbar v-model="showError" color="error" timeout="4000">{{ errorMessage }}</v-snackbar>
     <v-snackbar v-model="showSuccess" color="success" timeout="2000">Step completed successfully!</v-snackbar>
     
-    <!-- STATISTICAL EXPLAINER TELEPORT -->
-    <Teleport to="#teleport-explainer">
-        <div v-if="activeTab === 'scaling'" class="fade-enter-active">
-            <div class="text-subtitle-2 font-weight-bold mb-2">Feature Scaling</div>
-            <p class="text-caption text-medium-emphasis mb-4">
-                Scaling ensures all features contribute equally to the model.
-            </p>
 
-            <v-expansion-panels variant="accordion" density="compact" class="mb-4">
-                <v-expansion-panel title="StandardScaler">
-                    <v-expansion-panel-text class="text-caption">
-                        Removes mean and scales to unit variance. Best for normal layouts.
-                    </v-expansion-panel-text>
-                </v-expansion-panel>
-                <v-expansion-panel title="MinMaxScaler">
-                    <v-expansion-panel-text class="text-caption">
-                        Scales data to [0, 1] range. Sensitive to outliers. Good for neural networks.
-                    </v-expansion-panel-text>
-                </v-expansion-panel>
-                <v-expansion-panel title="RobustScaler">
-                    <v-expansion-panel-text class="text-caption">
-                        Uses median and IQR. Best when data has many outliers.
-                    </v-expansion-panel-text>
-                </v-expansion-panel>
-            </v-expansion-panels>
-            
-            <div v-if="selectedFeatureDetails || editingFeature" class="mt-4 border-t pt-4">
-                 <div class="text-subtitle-2 font-weight-bold text-primary mb-1">
-                    Analysis: {{ selectedFeatureDetails?.feature || editingFeature }}
-                 </div>
-                 
-                 <div v-if="selectedFeatureDetails?.skew && Math.abs(selectedFeatureDetails.skew) > 1" class="d-flex align-start gap-2 mb-2">
-                     <v-icon color="warning" size="small" class="mt-1">mdi-alert</v-icon>
-                     <div class="text-caption">
-                        High skew ({{ selectedFeatureDetails.skew.toFixed(2) }}). 
-                        <strong>RobustScaler</strong> or <strong>Log Transform</strong> recommended.
-                     </div>
-                 </div>
-                 
-                 <div v-if="selectedFeatureDetails?.kurtosis && selectedFeatureDetails.kurtosis > 3" class="d-flex align-start gap-2">
-                     <v-icon color="info" size="small" class="mt-1">mdi-information</v-icon>
-                     <div class="text-caption">
-                        High kurtosis indicates heavy tails (outliers). <strong>RobustScaler</strong> handles this best.
-                     </div>
-                 </div>
-            </div>
-        </div>
-        
-        <div v-else-if="activeTab === 'missing'" class="fade-enter-active">
-             <div class="text-subtitle-2 font-weight-bold mb-2">Missing Values</div>
-             <p class="text-caption text-medium-emphasis">
-                Imputation fills gaps in your data.
-             </p>
-             <ul class="text-caption pl-4 mb-2">
-                 <li><strong>Mean/Median:</strong> Good for numerical data.</li>
-                 <li><strong>Mode:</strong> Good for categorical data.</li>
-                 <li><strong>KNN:</strong> Uses similar samples to guess values (slower but accurate).</li>
-             </ul>
-        </div>
-    </Teleport>
 
     <!-- Feature Details Dialog -->
     <v-dialog v-model="showDetailsDialog" max-width="800px">

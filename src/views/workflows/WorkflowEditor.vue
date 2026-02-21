@@ -174,7 +174,7 @@
             
             <!-- Step Content (Scrollable) -->
             <div class="flex-grow-1 overflow-y-auto pa-6 bg-background">
-                <v-container fluid class="pa-0 h-100" style="max-width: 1200px;">
+                <v-container fluid class="pa-0 h-100">
                     <!-- LOADING -->
                     <div v-if="workflowsStore.isLoading && !workflow" class="mt-12">
                         <v-skeleton-loader type="article" class="mb-4 bg-transparent"></v-skeleton-loader>
@@ -225,7 +225,7 @@
             <div 
                 class="position-absolute bottom-0 right-0 ma-4 d-flex gap-2"
                 style="bottom: 200px; right: 24px; z-index: 10;" 
-                v-if="workflow && currentStep < 4 && currentStep !== 1"
+                v-if="workflow && currentStep < 4 && currentStep !== 1 && currentStep !== 2"
             >
                 <v-btn 
                     variant="tonal" 
@@ -252,30 +252,7 @@
             </div>
         </div>
 
-        <!-- RIGHT SIDEBAR: EXPLAINER (300px) -->
-        <div class="bg-surface border-l d-flex flex-column" style="width: 320px; flex-shrink: 0; z-index: 5;">
-            <div class="px-4 py-3 border-b bg-surface-light font-weight-bold text-uppercase text-caption text-medium-emphasis">
-                Statistical Explainer
-            </div>
-
-            <div class="flex-grow-1 overflow-y-auto pa-4 scrollbar-thin" id="teleport-explainer">
-                <div class="text-center mt-8 text-medium-emphasis">
-                     <v-icon icon="mdi-lightbulb-on-outline" size="large" class="mb-2" color="amber"></v-icon>
-                     <div class="text-subtitle-2 text-high-emphasis mb-1">Model Insights</div>
-                     <div class="text-caption">
-                        Statistical breakdowns and feature importance explanations will appear here as you configure your pipeline.
-                     </div>
-                </div>
-                
-                <v-divider class="my-6"></v-divider>
-                
-                <!-- Placeholder Content -->
-                <div v-if="currentStep === 0" class="text-caption text-medium-emphasis">
-                    <p class="mb-2"><strong>Tip:</strong> The <strong>Kurtosis</strong> value indicates how heavy the tails of your distribution are. High kurtosis means more outliers.</p>
-                    <p><strong>Entropy:</strong> Low entropy means the target variable is predictable (one class dominates).</p>
-                </div>
-            </div>
-        </div>
+        <!-- RIGHT SIDEBAR REMOVED -->
     </div>
 
   </div>

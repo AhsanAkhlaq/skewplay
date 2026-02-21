@@ -1,0 +1,22 @@
+# Math & Data
+numpy
+pandas
+
+# Machine Learning
+scikit-learn
+xgboost
+lightgbm
+catboost
+imbalanced-learn
+joblib
+
+
+# UI & Visualization
+matplotlib
+seaborn
+plotly
+
+# API & Web
+fastapi
+uvicorn
+python-multipart

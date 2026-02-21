@@ -46,12 +46,17 @@ export interface PipelineConfig {
     };
   };
   model: {
-    algorithm: 'RandomForest' | 'XGBoost' | 'LogisticRegression';
+    algorithm: 'RandomForest' | 'XGBoost' | 'LogisticRegression' | 'LightGBM' | 'CatBoost' | 'BalancedRandomForest' | 'EasyEnsemble' | 'RUSBoost' | 'SVM' | 'KNN';
     hyperparameters: {
       n_estimators?: number;
       max_depth?: number;
       C?: number;
       kernel?: string;
+      learning_rate?: number;
+      scale_pos_weight?: number;
+      n_neighbors?: number;
+      class_weight?: string;
+      auto_class_weights?: string;
     };
   };
 }
@@ -74,6 +79,8 @@ export interface Workflow {
     balancedDataPath?: string;
     modelPath?: string;
     confusionMatrixUrl?: string;
+    prCurveUrl?: string;
+    featureImportanceUrl?: string;
     reportPdfUrl?: string;
     targetEncoderPath?: string;
   };
@@ -82,6 +89,8 @@ export interface Workflow {
     f1Score: number;
     precision: number;
     recall: number;
+    prAuc?: number;
+    gMean?: number;
     executionTimeSeconds: number;
   };
   error?: string; // To track failed state
@@ -224,6 +233,8 @@ export const useWorkflowsStore = defineStore('workflows', () => {
       const actualFileName = parts[parts.length - 1] || dataset.fileName;
 
       const formData = new FormData();
+      formData.append('userId', user.uid);
+      formData.append('workflowId', workflowId);
       formData.append('fileName', actualFileName);
       formData.append('targetCol', dataset.targetColumn || 'target');
       formData.append('config', JSON.stringify(workflow.config));
