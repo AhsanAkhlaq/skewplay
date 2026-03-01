@@ -11,7 +11,7 @@ def sanitize_for_json(obj):
             return None
         return obj
     elif isinstance(obj, dict):
-        return {k: sanitize_for_json(v) for k, v in obj.items()}
+        return {str(k): sanitize_for_json(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [sanitize_for_json(v) for v in obj]
     elif hasattr(obj, 'item'): # Handle numpy scalars (np.float64, np.int64, etc.)

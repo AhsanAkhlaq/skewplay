@@ -179,6 +179,8 @@
                             density="comfortable"
                             items-per-page="-1"
                             hide-default-footer
+                            hover
+                            class="striped-table"
                          >
                             <template v-slot:item="{ item }: { item: any }">
                                 <tr :class="{'bg-grey-lighten-4': droppedFeatures.has(item.feature)}">
@@ -223,15 +225,29 @@
                                                         emit('update:modelValue', { ...props.modelValue, featureConfigs: newConfigs });
                                                     }
                                                 }"
-                                            ></v-select>
+                                            >
+                                                <v-tooltip activator="parent" location="top">Select the method to fill missing values for this feature.</v-tooltip>
+                                                <template v-slot:item="{ props: itemProps, item }">
+                                                    <v-list-item v-bind="itemProps">
+                                                        <v-tooltip activator="parent" location="right" open-delay="100" max-width="300">
+                                                            <span v-if="item.raw === 'mean'">Replaces missing values with the mean of the column.</span>
+                                                            <span v-else-if="item.raw === 'median'">Replaces missing values with the median of the column.</span>
+                                                            <span v-else-if="item.raw === 'most_frequent'">Replaces missing values with the most frequent value.</span>
+                                                            <span v-else-if="item.raw === 'constant'">Replaces missing values with a specified constant value.</span>
+                                                            <span v-else-if="item.raw === 'knn'">Replaces missing values using k-Nearest Neighbors.</span>
+                                                        </v-tooltip>
+                                                    </v-list-item>
+                                                </template>
+                                            </v-select>
                                             <v-btn 
-                                                icon="mdi-cog" 
+                                                icon 
                                                 size="small" 
                                                 variant="text" 
                                                 color="medium-emphasis"
                                                 @click="openConfig(item.feature)"
                                                 :disabled="!featureConfigs[item.feature] || (featureConfigs[item.feature]!.strategy !== 'knn' && featureConfigs[item.feature]!.strategy !== 'constant')"
                                             >
+                                                <v-icon>mdi-cog</v-icon>
                                                 <v-tooltip activator="parent">Configure parameters</v-tooltip>
                                             </v-btn>
                                         </div>
@@ -246,6 +262,7 @@
                                             prepend-icon="mdi-delete"
                                             @click="toggleDrop(item.feature)"
                                         >
+                                            <v-tooltip activator="parent" location="top">Exclude this feature from the dataset</v-tooltip>
                                             Drop
                                         </v-btn>
                                         <v-btn
@@ -256,6 +273,7 @@
                                             prepend-icon="mdi-restore"
                                             @click="toggleDrop(item.feature)"
                                         >
+                                            <v-tooltip activator="parent" location="top">Include this feature in the dataset</v-tooltip>
                                             Restore
                                         </v-btn>
                                     </td>
@@ -289,7 +307,8 @@
                             :items="featuresClean"
                             density="compact"
                             items-per-page="10"
-                            class="text-caption"
+                            class="text-caption striped-table"
+                            hover
                          >
                             <template v-slot:item="{ item }: { item: any }">
                                 <tr :class="{'bg-grey-lighten-4': droppedFeatures.has(item.feature)}">
@@ -370,6 +389,11 @@
                      <div class="d-flex align-center justify-space-between mb-4">
                          <div class="text-h6 font-weight-bold">
                              Categorical Features
+                             <v-tooltip text="Features with discrete categories or text labels instead of continuous numerical values." location="top">
+                               <template v-slot:activator="{ props }">
+                                 <v-icon v-bind="props" size="small" class="ms-1 text-medium-emphasis pb-1" tabindex="0">mdi-information-outline</v-icon>
+                               </template>
+                             </v-tooltip>
                              <v-chip size="small" color="secondary" variant="flat" class="ml-2">{{ categoricalFeatures.length }}</v-chip>
                          </div>
                      </div>
@@ -385,6 +409,8 @@
                             density="comfortable"
                             items-per-page="-1"
                             hide-default-footer
+                            hover
+                            class="striped-table"
                          >
                             <template v-slot:item="{ item }: { item: any }">
                                 <tr :class="{'bg-grey-lighten-4': droppedFeatures.has(item.feature)}">
@@ -424,7 +450,18 @@
                                                     }
                                                 }"
                                                 label="Encoder"
-                                            ></v-select>
+                                            >
+                                                <v-tooltip activator="parent" location="top">Select the technique to convert text labels to numerical values.</v-tooltip>
+                                                <template v-slot:item="{ props: itemProps, item }">
+                                                    <v-list-item v-bind="itemProps">
+                                                        <v-tooltip activator="parent" location="right" open-delay="100" max-width="300">
+                                                            <span v-if="item.raw === 'OneHot'">Creates binary columns (0/1) for each category. Best for low cardinality.</span>
+                                                            <span v-else-if="item.raw === 'Ordinal'">Assigns an integer ID to each category. Best for tree-based models or inherently ordered data.</span>
+                                                            <span v-else-if="item.raw === 'Target'">Encodes categories with the mean of the target variable. Best for high cardinality.</span>
+                                                        </v-tooltip>
+                                                    </v-list-item>
+                                                </template>
+                                            </v-select>
                                         </div>
                                         <div v-else class="text-caption text-disabled">Ignored</div>
                                     </td>
@@ -460,7 +497,14 @@
         <v-window-item value="transformation" class="h-100 pa-6" :disabled="!step3Complete">
              <div class="step-content">
                 <div class="d-flex align-center justify-space-between mb-4">
-                    <h3 class="text-h6 font-weight-bold">Feature Transformation</h3>
+                    <h3 class="text-h6 font-weight-bold">
+                        Feature Transformation
+                        <v-tooltip text="Applies mathematical functions to reduce skewness and make distributions more normal/symmetric, which can improve model performance." location="top" max-width="400">
+                            <template v-slot:activator="{ props }">
+                                <v-icon v-bind="props" size="small" class="ms-1 text-medium-emphasis pb-1" tabindex="0">mdi-information-outline</v-icon>
+                            </template>
+                        </v-tooltip>
+                    </h3>
                     <v-chip color="info" variant="tonal" size="small">
                         Reduce skewness in numerical features
                     </v-chip>
@@ -473,17 +517,23 @@
                         { title: 'Transformation', key: 'transform', sortable: false, width: '250px' }
                     ]"
                     :items="numericalFeatures"
-                    class="elevation-0 bg-transparent"
+                    class="elevation-0 bg-transparent striped-table"
                     density="comfortable"
+                    hover
                 >
                     <template v-slot:item.skew="{ item }">
-                        <v-chip
-                            :color="Math.abs(item.skew) > 1 ? 'error' : (Math.abs(item.skew) > 0.5 ? 'warning' : 'success')"
-                            size="small"
-                            variant="flat"
-                        >
-                            {{ item.skew?.toFixed(2) }}
-                        </v-chip>
+                        <v-tooltip text="Measures data asymmetry. Values near 0 are symmetric. Values >1 or <-1 indicate highly skewed distributions." location="top" max-width="300">
+                            <template v-slot:activator="{ props }">
+                                <v-chip
+                                    v-bind="props"
+                                    :color="Math.abs(item.skew) > 1 ? 'error' : (Math.abs(item.skew) > 0.5 ? 'warning' : 'success')"
+                                    size="small"
+                                    variant="flat"
+                                >
+                                    {{ item.skew?.toFixed(2) }}
+                                </v-chip>
+                            </template>
+                        </v-tooltip>
                     </template>
 
                     <template v-slot:item.transform="{ item }">
@@ -517,7 +567,20 @@
                                         }
                                     }
                                 }"
-                            ></v-select>
+                            >
+                                <v-tooltip activator="parent" location="top">Select transformation technique.</v-tooltip>
+                                <template v-slot:item="{ props: itemProps, item }">
+                                    <v-list-item v-bind="itemProps">
+                                        <v-tooltip activator="parent" location="right" open-delay="100" max-width="300">
+                                            <span v-if="item.raw.value === 'none'">No transformation applied.</span>
+                                            <span v-else-if="item.raw.value === 'log'">Compresses large differences in values. Good for data where a few numbers are much higher than the rest (like income).</span>
+                                            <span v-else-if="item.raw.value === 'sqrt'">Brings large values closer together, but less aggressively than Log.</span>
+                                            <span v-else-if="item.raw.value === 'yeo-johnson'">Automatically shapes the data into a bell curve (normal distribution). Works even if the data contains zeros or negative numbers.</span>
+                                            <span v-else-if="item.raw.value === 'box-cox'">Automatically shapes the data into a bell curve (normal distribution), but only works if all numbers are greater than zero.</span>
+                                        </v-tooltip>
+                                    </v-list-item>
+                                </template>
+                            </v-select>
                         </div>
                     </template>
                 </v-data-table>
@@ -539,7 +602,14 @@
         <v-window-item value="scaling" class="h-100 pa-6" :disabled="!step4Complete">
             <div class="step-content">
                 <div class="d-flex align-center justify-space-between mb-4">
-                    <h3 class="text-h6 font-weight-bold">Feature Scaling</h3>
+                    <h3 class="text-h6 font-weight-bold">
+                        Feature Scaling
+                        <v-tooltip text="Adjusts the range of numerical features so they are all on a similar scale. This prevents features with larger numbers from dominating the model learning process." location="top" max-width="400">
+                            <template v-slot:activator="{ props }">
+                                <v-icon v-bind="props" size="small" class="ms-1 text-medium-emphasis pb-1" tabindex="0">mdi-information-outline</v-icon>
+                            </template>
+                        </v-tooltip>
+                    </h3>
                     <v-chip color="info" variant="tonal" size="small">
                         Standardize or Normalize numerical features
                     </v-chip>
@@ -553,17 +623,23 @@
                         { title: 'Actions', key: 'actions', sortable: false, align: 'end', width: '50px' }
                     ]"
                     :items="numericalFeatures"
-                    class="elevation-0 bg-transparent"
+                    class="elevation-0 bg-transparent striped-table"
                     density="comfortable"
+                    hover
                 >
                     <template v-slot:item.skew="{ item }">
-                        <v-chip
-                            :color="Math.abs(item.skew) > 1 ? 'error' : (Math.abs(item.skew) > 0.5 ? 'warning' : 'success')"
-                            size="small"
-                            variant="flat"
-                        >
-                            {{ item.skew?.toFixed(2) }}
-                        </v-chip>
+                        <v-tooltip text="Measures data asymmetry. Values near 0 are symmetric. Values >1 or <-1 indicate highly skewed distributions." location="top" max-width="300">
+                            <template v-slot:activator="{ props }">
+                                <v-chip
+                                    v-bind="props"
+                                    :color="Math.abs(item.skew) > 1 ? 'error' : (Math.abs(item.skew) > 0.5 ? 'warning' : 'success')"
+                                    size="small"
+                                    variant="flat"
+                                >
+                                    {{ item.skew?.toFixed(2) }}
+                                </v-chip>
+                            </template>
+                        </v-tooltip>
                     </template>
 
                     <template v-slot:item.scaling="{ item }">
@@ -599,15 +675,26 @@
                                     }
                                 }"
                             >
-                                <template v-slot:item="{ props, item }">
-                                    <v-list-item v-bind="props" :subtitle="item.raw.subtitle"></v-list-item>
+                                <v-tooltip activator="parent" location="top">Select the scaling method for this feature.</v-tooltip>
+                                <template v-slot:item="{ props: itemProps, item }">
+                                    <v-list-item v-bind="itemProps" :subtitle="item.raw.subtitle">
+                                        <v-tooltip activator="parent" location="right" open-delay="100" max-width="300">
+                                            <span v-if="item.raw.value === 'Standard'">Centers data around 0 with a standard deviation of 1. Good default choice for many algorithms.</span>
+                                            <span v-else-if="item.raw.value === 'MinMax'">Squashes all values into a range between 0 and 1. Useful for neural networks or algorithms needing bounded ranges.</span>
+                                            <span v-else-if="item.raw.value === 'Robust'">Similar to Standard Scaler but ignores extreme outliers when calculating scale. Use if data has massive spikes.</span>
+                                            <span v-else-if="item.raw.value === 'None'">Leave the feature exactly as is.</span>
+                                        </v-tooltip>
+                                    </v-list-item>
                                 </template>
                             </v-select>
                         </div>
                     </template>
                     
                     <template v-slot:item.actions="{ item }">
-                        <v-btn icon="mdi-chart-bar" variant="text" size="small" color="primary" @click="openFeatureDetails(item)"></v-btn>
+                        <v-btn icon variant="text" size="small" color="primary" @click="openFeatureDetails(item)">
+                            <v-icon>mdi-chart-bar</v-icon>
+                            <v-tooltip activator="parent" location="top">View distribution chart for this feature</v-tooltip>
+                        </v-btn>
                     </template>
                 </v-data-table>
 
@@ -647,16 +734,29 @@
                 <v-row class="mb-6">
                     <v-col cols="12" md="6">
                         <v-card border elevation="0" class="h-100">
-                            <v-card-title class="text-subtitle-2 font-weight-bold">Feature Correlations</v-card-title>
+                            <v-card-title class="text-subtitle-2 font-weight-bold">
+                                Feature Correlations
+                                <v-tooltip text="Shows how much features overlap with each other. Highly overlapping (collinear) features can confuse models and one should usually be removed." location="top" max-width="400">
+                                    <template v-slot:activator="{ props }">
+                                        <v-icon v-bind="props" size="small" class="ms-1 text-medium-emphasis pb-1" tabindex="0">mdi-information-outline</v-icon>
+                                    </template>
+                                </v-tooltip>
+                            </v-card-title>
                             <v-card-text>
                                 <div id="chart-correlation" style="height: 300px;"></div>
                             </v-card-text>
-                            
                         </v-card>
                     </v-col>
                     <v-col cols="12" md="6">
                          <v-card border elevation="0" class="h-100">
-                            <v-card-title class="text-subtitle-2 font-weight-bold">Feature Importance (Target Correlation)</v-card-title>
+                            <v-card-title class="text-subtitle-2 font-weight-bold">
+                                Feature Importance (Target Correlation)
+                                <v-tooltip text="Shows how strongly each feature predicts your target variable. Features with very low importance might be safe to remove to speed up training." location="top" max-width="400">
+                                    <template v-slot:activator="{ props }">
+                                        <v-icon v-bind="props" size="small" class="ms-1 text-medium-emphasis pb-1" tabindex="0">mdi-information-outline</v-icon>
+                                    </template>
+                                </v-tooltip>
+                            </v-card-title>
                              <v-card-text>
                                 <div id="chart-importance" style="height: 300px;"></div>
                             </v-card-text>
@@ -669,7 +769,7 @@
                     <v-card-text>
                         <v-row>
                             <!-- Config Column -->
-                            <v-col cols="12" md="5" class="border-r">
+                            <v-col cols="12" md="12">
                                 <div class="text-subtitle-2 font-weight-bold mb-4">Selection Method</div>
                                 <v-select
                                     :model-value="props.selection?.method || 'None'"
@@ -680,7 +780,19 @@
                                     hide-details
                                     class="mb-4"
                                     @update:model-value="val => updateSelection('method', val)"
-                                ></v-select>
+                                >
+                                    <v-tooltip activator="parent" location="top">Choose an automated way to filter or compress your dataset columns.</v-tooltip>
+                                    <template v-slot:item="{ props: itemProps, item }">
+                                        <v-list-item v-bind="itemProps">
+                                            <v-tooltip activator="parent" location="right" open-delay="100" max-width="300">
+                                                <span v-if="item.raw === 'None'">Keep all features as they are.</span>
+                                                <span v-else-if="item.raw === 'VarianceThreshold'">Removes features that have the exact same value in almost every row (low variance).</span>
+                                                <span v-else-if="item.raw === 'PCA'">Principal Component Analysis. Compresses all features into a smaller number of artificial 'components' that capture the most variance.</span>
+                                                <span v-else-if="item.raw === 'SelectKBest'">Keeps only the exact top N features that have the strongest mathematical relationship with the target variable.</span>
+                                            </v-tooltip>
+                                        </v-list-item>
+                                    </template>
+                                </v-select>
 
                                 <!-- Dynamic Params -->
                                 <div v-if="props.selection?.method === 'VarianceThreshold'">
@@ -695,9 +807,13 @@
                                         bg-color="surface"
                                         hide-details
                                         @update:model-value="val => updateSelection('params', { threshold: Number(val) })"
-                                     ></v-text-field>
+                                     >
+                                         <v-tooltip activator="parent" location="top" max-width="300">
+                                             Any feature with a variation score below this threshold will be dropped. E.g., setting it to 0 drops columns where every single row has the exact same value.
+                                         </v-tooltip>
+                                     </v-text-field>
                                      <div class="text-caption text-medium-emphasis mt-2">
-                                        Removes features with variance < threshold.
+                                        Removes features with variance &lt; threshold.
                                      </div>
                                 </div>
                                 <div v-else-if="props.selection?.method === 'PCA'">
@@ -712,7 +828,11 @@
                                         bg-color="surface"
                                         hide-details
                                         @update:model-value="val => updateSelection('params', { n_components: Number(val) })"
-                                     ></v-text-field>
+                                     >
+                                         <v-tooltip activator="parent" location="top" max-width="300">
+                                             If you put a fraction like 0.95, it keeps enough components to explain 95% of the data's original spread. If you put a whole number like 10, it strictly creates exactly 10 components.
+                                         </v-tooltip>
+                                     </v-text-field>
                                       <div class="text-caption text-medium-emphasis mt-2">
                                         0-1: Explained Variance Ratio<br>
                                         >1: Number of Components
@@ -730,61 +850,11 @@
                                         bg-color="surface"
                                         hide-details
                                         @update:model-value="val => updateSelection('params', { k: Number(val) })"
-                                     ></v-text-field>
-                                </div>
-                            </v-col>
-
-                            <!-- Preview Column -->
-                            <v-col cols="12" md="7">
-                                <div class="text-subtitle-2 font-weight-bold mb-2 d-flex justify-space-between">
-                                    <span>Impact Preview</span>
-                                    <v-chip size="x-small" :color="previewStats.removed > 0 ? 'error' : 'success'" variant="flat">
-                                        {{ previewStats.kept }} Kept / {{ previewStats.removed }} Removed
-                                    </v-chip>
-                                </div>
-                                
-                                <div class="border rounded bg-surface overflow-hidden" style="height: 200px; position: relative;">
-                                    <div class="d-flex h-100">
-                                        <!-- Kept List -->
-                                        <div class="flex-grow-1 border-r d-flex flex-column" style="width: 50%;">
-                                            <div class="bg-grey-lighten-4 px-3 py-1 text-caption font-weight-bold text-success">
-                                                KEPT Features
-                                            </div>
-                                            <div class="overflow-y-auto pa-2 text-caption">
-                                                 <div v-for="f in previewFeatures.kept" :key="f" class="text-truncate">
-                                                     <v-icon size="small" color="success" start>mdi-check</v-icon>
-                                                     {{ f }}
-                                                 </div>
-                                                 <div v-if="previewFeatures.kept.length === 0" class="text-center text-disabled mt-4">
-                                                     No features kept (adjust params)
-                                                 </div>
-                                            </div>
-                                        </div>
-                                        <!-- Removed List -->
-                                        <div class="flex-grow-1 d-flex flex-column" style="width: 50%;">
-                                            <div class="bg-grey-lighten-4 px-3 py-1 text-caption font-weight-bold text-error">
-                                                REMOVED Features
-                                            </div>
-                                            <div class="overflow-y-auto pa-2 text-caption">
-                                                 <div v-for="f in previewFeatures.removed" :key="f" class="text-truncate text-medium-emphasis text-decoration-line-through">
-                                                     <v-icon size="small" color="error" start>mdi-close</v-icon>
-                                                     {{ f }}
-                                                 </div>
-                                                  <div v-if="previewFeatures.removed.length === 0" class="text-center text-disabled mt-4">
-                                                     No features removed
-                                                 </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Overlay for PCA -->
-                                    <div v-if="props.selection?.method === 'PCA'" class="position-absolute bg-surface d-flex align-center justify-center text-center pa-4" style="inset: 0; opacity: 0.95;">
-                                        <div>
-                                            <v-icon size="40" color="primary" class="mb-2">mdi-merge</v-icon>
-                                            <div class="text-subtitle-2 font-weight-bold">PCA Transform Active</div>
-                                            <div class="text-caption">Features will be transformed into {{ props.selection?.params?.n_components }} principal components. Individual feature names will be lost (replaced by PC1, PC2, etc.).</div>
-                                        </div>
-                                    </div>
+                                     >
+                                         <v-tooltip activator="parent" location="top" max-width="300">
+                                             The exact maximum number of top features you want to keep. All other features will be dropped.
+                                         </v-tooltip>
+                                     </v-text-field>
                                 </div>
                             </v-col>
                         </v-row>
@@ -1633,6 +1703,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
+:deep(.striped-table tbody tr:nth-of-type(even)) {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+:deep(.striped-table tbody tr:hover) {
+    background-color: rgba(var(--v-theme-primary), 0.05) !important;
+}
+
 .glass-card {
   background: rgba(var(--v-theme-surface), 0.9);
   backdrop-filter: blur(10px);

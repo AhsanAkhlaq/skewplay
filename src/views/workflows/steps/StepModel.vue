@@ -3,212 +3,264 @@
     <div class="d-flex flex-grow-1 overflow-hidden">
         
         <!-- LEFT: Model Catalog (Categories & Selection) -->
-        <div class="w-33 border-r h-100 overflow-y-auto bg-surface pa-4" style="min-width: 320px;">
-             <div class="text-h6 font-weight-bold mb-4 px-2">Model Catalog</div>
+        <div class="w-33 border-r h-100 overflow-y-auto bg-surface pa-6" style="min-width: 340px;">
+             <div class="text-h5 font-weight-bold mb-6 px-1">Model Catalog</div>
              
-             <v-expansion-panels variant="accordion" multiple v-model="expandedPanels">
+             <div class="d-flex flex-column gap-6">
                  
                  <!-- Category A: Interpretable Baselines -->
-                 <v-expansion-panel value="cat_a" elevation="0" class="bg-transparent">
-                     <v-expansion-panel-title collapse-icon="mdi-chevron-up" expand-icon="mdi-chevron-down">
-                         <div class="d-flex align-center">
-                             <v-icon color="primary" class="mr-3">mdi-magnify-scan</v-icon>
-                             <div class="d-flex flex-column text-left">
-                                 <span class="font-weight-bold">Interpretable Baselines</span>
-                                 <span class="text-caption text-medium-emphasis">Explainable decisions (Healthcare/Finance)</span>
-                             </div>
+                 <div class="model-category">
+                     <div class="d-flex align-center mb-3 px-1">
+                         <v-icon color="primary" class="mr-3" size="large">mdi-magnify-scan</v-icon>
+                         <div class="d-flex flex-column text-left">
+                             <span class="text-subtitle-1 font-weight-bold text-high-emphasis">Interpretable Baselines</span>
+                             <span class="text-caption text-medium-emphasis">Explainable decisions (Healthcare/Finance)</span>
                          </div>
-                     </v-expansion-panel-title>
-                     <v-expansion-panel-text class="pa-0">
-                         <v-list density="compact" bg-color="transparent">
-                             <v-list-item 
-                                value="LogisticRegression" 
-                                @click="selectAlgorithm('LogisticRegression')"
-                                :active="modelValue.algorithm === 'LogisticRegression'"
-                                color="primary"
-                                rounded="lg"
-                                class="mb-1"
-                             >
-                                <template v-slot:prepend>
-                                    <v-icon size="small" icon="mdi-function-variant"></v-icon>
-                                </template>
-                                <v-list-item-title>Logistic Regression</v-list-item-title>
-                             </v-list-item>
+                     </div>
+                     <v-card variant="flat" class="bg-grey-lighten-4 rounded-lg overflow-hidden border">
+                         <v-list density="compact" bg-color="transparent" class="pa-2">
+                             <v-tooltip text="Baseline classification model. Interpretable coefficients." location="right" open-delay="300" max-width="300">
+                               <template v-slot:activator="{ props }">
+                                 <v-list-item 
+                                    v-bind="props"
+                                    value="LogisticRegression" 
+                                    @click="selectAlgorithm('LogisticRegression')"
+                                    :active="modelValue.algorithm === 'LogisticRegression'"
+                                    color="primary"
+                                    :variant="modelValue.algorithm === 'LogisticRegression' ? 'tonal' : 'text'"
+                                    rounded="md"
+                                    class="mb-1"
+                                 >
+                                    <template v-slot:prepend>
+                                        <v-icon size="small" icon="mdi-function-variant"></v-icon>
+                                    </template>
+                                    <v-list-item-title class="font-weight-medium">Logistic Regression</v-list-item-title>
+                                 </v-list-item>
+                               </template>
+                             </v-tooltip>
                              
-                             <v-list-item 
-                                value="RandomForest" 
-                                @click="selectAlgorithm('RandomForest')"
-                                :active="modelValue.algorithm === 'RandomForest'"
-                                color="primary"
-                                rounded="lg"
-                             >
-                                <template v-slot:prepend>
-                                    <v-icon size="small" icon="mdi-forest"></v-icon>
-                                </template>
-                                <v-list-item-title>Random Forest</v-list-item-title>
-                             </v-list-item>
+                             <v-tooltip text="Ensemble of decision trees. Robust and widely used." location="right" open-delay="300" max-width="300">
+                               <template v-slot:activator="{ props }">
+                                 <v-list-item 
+                                    v-bind="props"
+                                    value="RandomForest" 
+                                    @click="selectAlgorithm('RandomForest')"
+                                    :active="modelValue.algorithm === 'RandomForest'"
+                                    color="primary"
+                                    :variant="modelValue.algorithm === 'RandomForest' ? 'tonal' : 'text'"
+                                    rounded="md"
+                                 >
+                                    <template v-slot:prepend>
+                                        <v-icon size="small" icon="mdi-forest"></v-icon>
+                                    </template>
+                                    <v-list-item-title class="font-weight-medium">Random Forest</v-list-item-title>
+                                 </v-list-item>
+                               </template>
+                             </v-tooltip>
                          </v-list>
-                     </v-expansion-panel-text>
-                 </v-expansion-panel>
+                     </v-card>
+                 </div>
 
                  <!-- Category B: Gradient Boosting -->
-                 <v-expansion-panel value="cat_b" elevation="0" class="bg-transparent">
-                     <v-expansion-panel-title collapse-icon="mdi-chevron-up" expand-icon="mdi-chevron-down">
-                         <div class="d-flex align-center">
-                             <v-icon color="warning" class="mr-3">mdi-rocket-launch</v-icon>
-                             <div class="d-flex flex-column text-left">
-                                 <span class="font-weight-bold">Gradient Boosting</span>
-                                 <span class="text-caption text-medium-emphasis">High performance on tabular data</span>
-                             </div>
+                 <div class="model-category">
+                     <div class="d-flex align-center mb-3 px-1">
+                         <v-icon color="warning" class="mr-3" size="large">mdi-rocket-launch</v-icon>
+                         <div class="d-flex flex-column text-left">
+                             <span class="text-subtitle-1 font-weight-bold text-high-emphasis">Gradient Boosting</span>
+                             <span class="text-caption text-medium-emphasis">High performance on tabular data</span>
                          </div>
-                     </v-expansion-panel-title>
-                     <v-expansion-panel-text class="pa-0">
-                         <v-list density="compact" bg-color="transparent">
-                             <v-list-item 
-                                value="XGBoost" 
-                                @click="selectAlgorithm('XGBoost')"
-                                :active="modelValue.algorithm === 'XGBoost'"
-                                color="primary"
-                                rounded="lg"
-                                class="mb-1"
-                             >
-                                <template v-slot:prepend>
-                                    <v-icon size="small" icon="mdi-flash"></v-icon>
-                                </template>
-                                <v-list-item-title>XGBoost</v-list-item-title>
-                             </v-list-item>
+                     </div>
+                     <v-card variant="flat" class="bg-grey-lighten-4 rounded-lg overflow-hidden border">
+                         <v-list density="compact" bg-color="transparent" class="pa-2">
+                             <v-tooltip text="Gradient Boosting. High performance, handles missing data." location="right" open-delay="300" max-width="300">
+                               <template v-slot:activator="{ props }">
+                                 <v-list-item 
+                                    v-bind="props"
+                                    value="XGBoost" 
+                                    @click="selectAlgorithm('XGBoost')"
+                                    :active="modelValue.algorithm === 'XGBoost'"
+                                    color="primary"
+                                    :variant="modelValue.algorithm === 'XGBoost' ? 'tonal' : 'text'"
+                                    rounded="md"
+                                    class="mb-1"
+                                 >
+                                    <template v-slot:prepend>
+                                        <v-icon size="small" icon="mdi-flash"></v-icon>
+                                    </template>
+                                    <v-list-item-title class="font-weight-medium">XGBoost</v-list-item-title>
+                                 </v-list-item>
+                               </template>
+                             </v-tooltip>
                              
-                             <v-list-item 
-                                value="LightGBM" 
-                                @click="selectAlgorithm('LightGBM')"
-                                :active="modelValue.algorithm === 'LightGBM'"
-                                color="primary"
-                                rounded="lg"
-                                class="mb-1"
-                             >
-                                <template v-slot:prepend>
-                                    <v-icon size="small" icon="mdi-feather"></v-icon>
-                                </template>
-                                <v-list-item-title>LightGBM</v-list-item-title>
-                             </v-list-item>
+                             <v-tooltip text="Light Gradient Boosting. Faster training, low memory usage." location="right" open-delay="300" max-width="300">
+                               <template v-slot:activator="{ props }">
+                                 <v-list-item 
+                                    v-bind="props"
+                                    value="LightGBM" 
+                                    @click="selectAlgorithm('LightGBM')"
+                                    :active="modelValue.algorithm === 'LightGBM'"
+                                    color="primary"
+                                    :variant="modelValue.algorithm === 'LightGBM' ? 'tonal' : 'text'"
+                                    rounded="md"
+                                    class="mb-1"
+                                 >
+                                    <template v-slot:prepend>
+                                        <v-icon size="small" icon="mdi-feather"></v-icon>
+                                    </template>
+                                    <v-list-item-title class="font-weight-medium">LightGBM</v-list-item-title>
+                                 </v-list-item>
+                               </template>
+                             </v-tooltip>
                              
-                             <v-list-item 
-                                value="CatBoost" 
-                                @click="selectAlgorithm('CatBoost')"
-                                :active="modelValue.algorithm === 'CatBoost'"
-                                color="primary"
-                                rounded="lg"
-                             >
-                                <template v-slot:prepend>
-                                    <v-icon size="small" icon="mdi-cat"></v-icon>
-                                </template>
-                                <v-list-item-title>CatBoost</v-list-item-title>
-                             </v-list-item>
+                             <v-tooltip text="Gradient boosting with categorical feature support without explicit pre-processing." location="right" open-delay="300" max-width="300">
+                               <template v-slot:activator="{ props }">
+                                 <v-list-item 
+                                    v-bind="props"
+                                    value="CatBoost" 
+                                    @click="selectAlgorithm('CatBoost')"
+                                    :active="modelValue.algorithm === 'CatBoost'"
+                                    color="primary"
+                                    :variant="modelValue.algorithm === 'CatBoost' ? 'tonal' : 'text'"
+                                    rounded="md"
+                                 >
+                                    <template v-slot:prepend>
+                                        <v-icon size="small" icon="mdi-cat"></v-icon>
+                                    </template>
+                                    <v-list-item-title class="font-weight-medium">CatBoost</v-list-item-title>
+                                 </v-list-item>
+                               </template>
+                             </v-tooltip>
                          </v-list>
-                     </v-expansion-panel-text>
-                 </v-expansion-panel>
+                     </v-card>
+                 </div>
 
-                 <!-- Category C: Imbalance-Specific Ensembles -->
-                 <v-expansion-panel value="cat_c" elevation="0" class="bg-transparent">
-                     <v-expansion-panel-title collapse-icon="mdi-chevron-up" expand-icon="mdi-chevron-down">
-                         <div class="d-flex align-center">
-                             <v-icon color="error" class="mr-3">mdi-scale-balance</v-icon>
-                             <div class="d-flex flex-column text-left">
-                                 <span class="font-weight-bold">Imbalance Ensembles</span>
-                                 <span class="text-caption text-medium-emphasis">Specialized for skewed data</span>
-                             </div>
+                 <!-- Category C: Imbalance Ensembles -->
+                 <div class="model-category">
+                     <div class="d-flex align-center mb-3 px-1">
+                         <v-icon color="error" class="mr-3" size="large">mdi-scale-balance</v-icon>
+                         <div class="d-flex flex-column text-left">
+                             <span class="text-subtitle-1 font-weight-bold text-high-emphasis">Imbalance Ensembles</span>
+                             <span class="text-caption text-medium-emphasis">Specialized for skewed data</span>
                          </div>
-                     </v-expansion-panel-title>
-                     <v-expansion-panel-text class="pa-0">
-                         <v-list density="compact" bg-color="transparent">
-                             <v-list-item 
-                                value="BalancedRandomForest" 
-                                @click="selectAlgorithm('BalancedRandomForest')"
-                                :active="modelValue.algorithm === 'BalancedRandomForest'"
-                                color="primary"
-                                rounded="lg"
-                                class="mb-1"
-                             >
-                                <template v-slot:prepend>
-                                    <v-icon size="small" icon="mdi-tree"></v-icon>
-                                </template>
-                                <v-list-item-title>Balanced Random Forest</v-list-item-title>
-                             </v-list-item>
+                     </div>
+                     <v-card variant="flat" class="bg-grey-lighten-4 rounded-lg overflow-hidden border">
+                         <v-list density="compact" bg-color="transparent" class="pa-2">
+                             <v-tooltip text="Random Forest with random undersampling for each tree. Great for imbalanced data." location="right" open-delay="300" max-width="300">
+                               <template v-slot:activator="{ props }">
+                                 <v-list-item 
+                                    v-bind="props"
+                                    value="BalancedRandomForest" 
+                                    @click="selectAlgorithm('BalancedRandomForest')"
+                                    :active="modelValue.algorithm === 'BalancedRandomForest'"
+                                    color="primary"
+                                    :variant="modelValue.algorithm === 'BalancedRandomForest' ? 'tonal' : 'text'"
+                                    rounded="md"
+                                    class="mb-1"
+                                 >
+                                    <template v-slot:prepend>
+                                        <v-icon size="small" icon="mdi-tree"></v-icon>
+                                    </template>
+                                    <v-list-item-title class="font-weight-medium">Balanced Random Forest</v-list-item-title>
+                                 </v-list-item>
+                               </template>
+                             </v-tooltip>
                              
-                             <v-list-item 
-                                value="EasyEnsemble" 
-                                @click="selectAlgorithm('EasyEnsemble')"
-                                :active="modelValue.algorithm === 'EasyEnsemble'"
-                                color="primary"
-                                rounded="lg"
-                                class="mb-1"
-                             >
-                                <template v-slot:prepend>
-                                    <v-icon size="small" icon="mdi-layers-triple"></v-icon>
-                                </template>
-                                <v-list-item-title>Easy Ensemble</v-list-item-title>
-                             </v-list-item>
+                             <v-tooltip text="Ensemble of AdaBoost learners on balanced bootstrap samples." location="right" open-delay="300" max-width="300">
+                               <template v-slot:activator="{ props }">
+                                 <v-list-item 
+                                    v-bind="props"
+                                    value="EasyEnsemble" 
+                                    @click="selectAlgorithm('EasyEnsemble')"
+                                    :active="modelValue.algorithm === 'EasyEnsemble'"
+                                    color="primary"
+                                    :variant="modelValue.algorithm === 'EasyEnsemble' ? 'tonal' : 'text'"
+                                    rounded="md"
+                                    class="mb-1"
+                                 >
+                                    <template v-slot:prepend>
+                                        <v-icon size="small" icon="mdi-layers-triple"></v-icon>
+                                    </template>
+                                    <v-list-item-title class="font-weight-medium">Easy Ensemble</v-list-item-title>
+                                 </v-list-item>
+                               </template>
+                             </v-tooltip>
 
-                             <v-list-item 
-                                value="RUSBoost" 
-                                @click="selectAlgorithm('RUSBoost')"
-                                :active="modelValue.algorithm === 'RUSBoost'"
-                                color="primary"
-                                rounded="lg"
-                             >
-                                <template v-slot:prepend>
-                                    <v-icon size="small" icon="mdi-speedometer"></v-icon>
-                                </template>
-                                <v-list-item-title>RUSBoost</v-list-item-title>
-                             </v-list-item>
+                             <v-tooltip text="AdaBoost variant with random undersampling (RUS). Fast for large skewed data." location="right" open-delay="300" max-width="300">
+                               <template v-slot:activator="{ props }">
+                                 <v-list-item 
+                                    v-bind="props"
+                                    value="RUSBoost" 
+                                    @click="selectAlgorithm('RUSBoost')"
+                                    :active="modelValue.algorithm === 'RUSBoost'"
+                                    color="primary"
+                                    :variant="modelValue.algorithm === 'RUSBoost' ? 'tonal' : 'text'"
+                                    rounded="md"
+                                 >
+                                    <template v-slot:prepend>
+                                        <v-icon size="small" icon="mdi-speedometer"></v-icon>
+                                    </template>
+                                    <v-list-item-title class="font-weight-medium">RUSBoost</v-list-item-title>
+                                 </v-list-item>
+                               </template>
+                             </v-tooltip>
                          </v-list>
-                     </v-expansion-panel-text>
-                 </v-expansion-panel>
+                     </v-card>
+                 </div>
                  
                   <!-- Category D: Distance & Margin -->
-                 <v-expansion-panel value="cat_d" elevation="0" class="bg-transparent">
-                     <v-expansion-panel-title collapse-icon="mdi-chevron-up" expand-icon="mdi-chevron-down">
-                         <div class="d-flex align-center">
-                             <v-icon color="secondary" class="mr-3">mdi-vector-line</v-icon>
-                             <div class="d-flex flex-column text-left">
-                                 <span class="font-weight-bold">Distance & Margin</span>
-                                 <span class="text-caption text-medium-emphasis">SVC, KNN</span>
-                             </div>
+                 <div class="model-category">
+                     <div class="d-flex align-center mb-3 px-1">
+                         <v-icon color="secondary" class="mr-3" size="large">mdi-vector-line</v-icon>
+                         <div class="d-flex flex-column text-left">
+                             <span class="text-subtitle-1 font-weight-bold text-high-emphasis">Distance & Margin</span>
+                             <span class="text-caption text-medium-emphasis">SVC, KNN</span>
                          </div>
-                     </v-expansion-panel-title>
-                     <v-expansion-panel-text class="pa-0">
-                         <v-list density="compact" bg-color="transparent">
-                             <v-list-item 
-                                value="SVM" 
-                                @click="selectAlgorithm('SVM')"
-                                :active="modelValue.algorithm === 'SVM'"
-                                color="primary"
-                                rounded="lg"
-                                class="mb-1"
-                             >
-                                <template v-slot:prepend>
-                                    <v-icon size="small" icon="mdi-vector-polyline"></v-icon>
-                                </template>
-                                <v-list-item-title>Support Vector Classifier (SVC)</v-list-item-title>
-                             </v-list-item>
+                     </div>
+                     <v-card variant="flat" class="bg-grey-lighten-4 rounded-lg overflow-hidden border">
+                         <v-list density="compact" bg-color="transparent" class="pa-2">
+                             <v-tooltip text="Support Vector Machine. Finds optimal margin/boundary to classify data." location="right" open-delay="300" max-width="300">
+                               <template v-slot:activator="{ props }">
+                                 <v-list-item 
+                                    v-bind="props"
+                                    value="SVM" 
+                                    @click="selectAlgorithm('SVM')"
+                                    :active="modelValue.algorithm === 'SVM'"
+                                    color="primary"
+                                    :variant="modelValue.algorithm === 'SVM' ? 'tonal' : 'text'"
+                                    rounded="md"
+                                    class="mb-1"
+                                 >
+                                    <template v-slot:prepend>
+                                        <v-icon size="small" icon="mdi-vector-polyline"></v-icon>
+                                    </template>
+                                    <v-list-item-title class="font-weight-medium">Support Vector Classifier (SVC)</v-list-item-title>
+                                 </v-list-item>
+                               </template>
+                             </v-tooltip>
                              
-                             <v-list-item 
-                                value="KNN" 
-                                @click="selectAlgorithm('KNN')"
-                                :active="modelValue.algorithm === 'KNN'"
-                                color="primary"
-                                rounded="lg"
-                             >
-                                <template v-slot:prepend>
-                                    <v-icon size="small" icon="mdi-dots-grid"></v-icon>
-                                </template>
-                                <v-list-item-title>K-Nearest Neighbors (KNN)</v-list-item-title>
-                             </v-list-item>
+                             <v-tooltip text="K-Nearest Neighbors. Instance-based learning that votes based on closest points." location="right" open-delay="300" max-width="300">
+                               <template v-slot:activator="{ props }">
+                                 <v-list-item 
+                                    v-bind="props"
+                                    value="KNN" 
+                                    @click="selectAlgorithm('KNN')"
+                                    :active="modelValue.algorithm === 'KNN'"
+                                    color="primary"
+                                    :variant="modelValue.algorithm === 'KNN' ? 'tonal' : 'text'"
+                                    rounded="md"
+                                 >
+                                    <template v-slot:prepend>
+                                        <v-icon size="small" icon="mdi-dots-grid"></v-icon>
+                                    </template>
+                                    <v-list-item-title class="font-weight-medium">K-Nearest Neighbors (KNN)</v-list-item-title>
+                                 </v-list-item>
+                               </template>
+                             </v-tooltip>
                          </v-list>
-                     </v-expansion-panel-text>
-                 </v-expansion-panel>
+                     </v-card>
+                 </div>
 
-             </v-expansion-panels>
+             </div>
         </div>
         
         <!-- RIGHT: Configuration -->
@@ -266,6 +318,11 @@
                  <div class="text-subtitle-1 font-weight-bold mb-4 d-flex align-center">
                      <v-icon size="small" class="mr-2">mdi-tune</v-icon>
                      Hyperparameters
+                     <v-tooltip text="Model-specific parameters that dictate how the algorithm learns. Adjust these to optimize performance." location="top" max-width="300">
+                         <template v-slot:activator="{ props }">
+                             <v-icon v-bind="props" size="small" class="ms-2 text-medium-emphasis pb-1" tabindex="0">mdi-information-outline</v-icon>
+                         </template>
+                     </v-tooltip>
                  </div>
                  
                  <v-card variant="outlined" class="pa-4 bg-grey-lighten-5 border-dashed">
@@ -426,7 +483,6 @@ const recommendationText = computed(() => {
 });
 
 // State
-const expandedPanels = ref(['cat_a', 'cat_b', 'cat_c', 'cat_d']); // Expand all by default
 const params = ref<any>({});
 const useClassWeight = ref(false);
 const useScalePosWeight = ref(false);

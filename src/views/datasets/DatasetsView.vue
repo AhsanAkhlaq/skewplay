@@ -299,12 +299,29 @@
                 density="compact"
                 hint="Select the column you want to predict"
                 persistent-hint
+                class="mb-3"
               ></v-select>
+
+              <v-textarea
+                v-model="uploadDescription"
+                label="Dataset Description"
+                variant="outlined"
+                density="compact"
+                rows="3"
+                hide-details="auto"
+                hint="Describe what this dataset is about"
+              ></v-textarea>
           </div>
 
           
           <!-- EXISTING DATASET: TARGET ANALYSIS -->
           <div v-if="previewDataset">
+              <!-- Description -->
+              <div v-if="previewDataset.description" class="mb-6 border-b pb-4">
+                  <div class="text-caption text-medium-emphasis text-uppercase font-weight-bold mb-2">Description</div>
+                  <div class="text-body-2 bg-grey-lighten-5 pa-3 rounded-lg border" style="white-space: pre-wrap; line-height: 1.5; max-height: 150px; overflow-y: auto;">{{ previewDataset.description }}</div>
+              </div>
+
               <!-- Header -->
               <div class="d-flex align-center justify-space-between mb-6 border-b pb-4">
                   <div>
@@ -691,6 +708,7 @@ const previewRows = ref<string[][]>([]);
 
 const uploadName = ref('');
 const uploadTargetCol = ref<string | null>(null);
+const uploadDescription = ref('');
 
 // Rename State
 const renameDialog = ref(false);
@@ -818,6 +836,7 @@ const cancelPreview = () => {
   files.value = [];
   uploadName.value = '';
   uploadTargetCol.value = null;
+  uploadDescription.value = '';
 };
 
 const confirmUpload = async () => {
@@ -827,12 +846,14 @@ const confirmUpload = async () => {
     await datasetsStore.uploadDataset(
         previewFile.value, 
         uploadName.value, 
-        uploadTargetCol.value
+        uploadTargetCol.value,
+        uploadDescription.value
     );
+    // if successful, no error thrown
     showSuccess.value = true;
     cancelPreview();
-  } catch (e) {
-    // Error handled in store
+  } catch (e: any) {
+    alert(e.message || "Failed to upload dataset.");
   }
 };
 
@@ -881,9 +902,13 @@ const openTargetDialog = async (dataset: Dataset) => {
 
 const confirmChangeTarget = async () => {
     if (!datasetToRename.value || !changeTargetValue.value) return;
-    await datasetsStore.reanalyzeDataset(datasetToRename.value.id, changeTargetValue.value);
-    changeTargetDialog.value = false;
-    showSuccess.value = true;
+    try {
+        await datasetsStore.reanalyzeDataset(datasetToRename.value.id, changeTargetValue.value);
+        changeTargetDialog.value = false;
+        showSuccess.value = true;
+    } catch(e: any) {
+        alert(e.message || "Failed to change target column.");
+    }
 };
 
 const handleDelete = async (id: string) => {

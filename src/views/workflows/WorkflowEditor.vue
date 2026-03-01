@@ -116,52 +116,21 @@
                     
                     <!-- Step 0: Dataset Params -->
                     <div v-if="currentStep === 0" key="step0">
-                        <div class="text-subtitle-2 font-weight-bold mb-4">Target Variable</div>
-                        <v-select
-                            v-model="selectedTargetColumn"
-                            :items="datasetHeaders"
-                            label="Select Target"
-                            variant="outlined"
-                            density="comfortable"
-                            prepend-inner-icon="mdi-target"
-                            bg-color="background"
-                            :loading="isLoadingHeaders"
-                            @update:model-value="onTargetChange"
-                            :error-messages="!selectedTargetColumn ? 'Required' : ''"
-                            class="mb-4"
-                        >
-                            <template v-slot:item="{ props, item }">
-                                <v-list-item v-bind="props" :subtitle="item.raw === dataset?.targetColumn ? '(Current)' : ''"></v-list-item>
-                            </template>
-                        </v-select>
                         
-                        <v-alert type="info" variant="tonal" density="compact" class="text-caption">
-                            Selecting a target variable triggers an automated EDA analysis.
-                        </v-alert>
                     </div>
 
                     <!-- Step 1: Preprocessing Params -->
                     <div v-else-if="currentStep === 1" key="step1">
-                         <div class="text-subtitle-2 font-weight-bold mb-4">Preprocessing</div>
-                         <!-- Placeholder: Ideally StepPreprocessing form controls move here -->
-                         <div class="text-body-2 text-medium-emphasis">
-                             Global preprocessing settings will appear here.
-                         </div>
+                         
                     </div>
 
                     <!-- Step 3: Model Params -->
                     <div v-else-if="currentStep === 3" key="step3">
-                         <div class="text-subtitle-2 font-weight-bold mb-4">Model Hyperparameters</div>
-                         <!-- Placeholder -->
-                         <div class="text-body-2 text-medium-emphasis">
-                             Model tuning controls will appear here.
-                         </div>
+                         
                     </div>
 
                     <div v-else key="empty">
-                        <div class="text-center text-disabled mt-4">
-                            No configuration for this step.
-                        </div>
+                        
                     </div>
                 </v-fade-transition>
             </div>
@@ -374,20 +343,12 @@ const onTargetChange = async (newTarget: string) => {
     if (!dataset.value || !newTarget) return;
     if (newTarget === dataset.value.targetColumn) return;
 
-    const confirmed = await uiStore.confirm(
-        'Change Target Column?', 
-        `Changing the target column to "${newTarget}" will re-analyze the dataset. Continue?`
-    );
-
-    if (confirmed) {
-        try {
-          await datasetsStore.reanalyzeDataset(dataset.value.id, newTarget);
-          await datasetsStore.fetchDatasets();
-          selectedTargetColumn.value = newTarget; // Update local ref
-        } catch(e) {
-           uiStore.showError("Failed to update target column");
-        }
-    } else {
+    try {
+        await datasetsStore.reanalyzeDataset(dataset.value.id, newTarget);
+        await datasetsStore.fetchDatasets();
+        selectedTargetColumn.value = newTarget; // Update local ref
+    } catch(e: any) {
+        uiStore.showError(e.message || "Failed to update target column");
         // Revert selection
         selectedTargetColumn.value = dataset.value.targetColumn || null;
     }

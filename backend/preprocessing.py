@@ -403,11 +403,13 @@ class PreprocessingPipeline:
              
         pd.DataFrame(X_train, columns=feature_names).to_parquet(os.path.join(output_dir, "X_train.parquet"))
         pd.DataFrame(X_test, columns=feature_names).to_parquet(os.path.join(output_dir, "X_test.parquet"))
-        
+
+       
         # Save Targets
-        pd.DataFrame(y_train, columns=['target']).to_parquet(os.path.join(output_dir, "y_train.parquet"))
-        pd.DataFrame(y_test, columns=['target']).to_parquet(os.path.join(output_dir, "y_test.parquet"))
-        
+        pd.DataFrame({'target': y_train}).to_parquet(os.path.join(output_dir, "y_train.parquet"))
+        pd.DataFrame({'target': y_test}).to_parquet(os.path.join(output_dir, "y_test.parquet"))
+        print(y_train.head())
+        print('ttttttt')
         # Save Pipelines
         full_pipeline_steps = [('preprocessor', self.preprocessor)]
         if self.selector:

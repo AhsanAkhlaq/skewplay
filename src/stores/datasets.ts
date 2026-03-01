@@ -34,6 +34,7 @@ export interface Dataset {
   // Analysis Data
   type: 'binary' | 'multiclass' | 'regression';
   targetColumn?: string;
+  description?: string;
   imbalanceRatios: Record<string, number>;
   anomalies: string[];
   targetMissingPct?: number;
@@ -96,7 +97,7 @@ export const useDatasetsStore = defineStore('datasets', () => {
     }
   };
 
-  const uploadDataset = async (file: File, customName?: string, manualTargetCol?: string) => {
+  const uploadDataset = async (file: File, customName?: string, manualTargetCol?: string, description?: string) => {
     isLoading.value = true;
     error.value = null;
 
@@ -124,6 +125,9 @@ export const useDatasetsStore = defineStore('datasets', () => {
       if (manualTargetCol) {
         formData.append('targetCol', manualTargetCol);
       }
+      if (description) {
+        formData.append('description', description);
+      }
 
       const response = await axios.post(`${PYTHON_API_URL}/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -143,6 +147,7 @@ export const useDatasetsStore = defineStore('datasets', () => {
 
         type: analysisData.type || 'unknown',
         targetColumn: analysisData.targetCol || 'Unknown',
+        description: analysisData.description || description || '',
         imbalanceRatios: analysisData.imbalanceRatios || {},
         anomalies: analysisData.anomalies || [],
         targetMissingPct: analysisData.targetMissingPct || 0,
@@ -167,7 +172,9 @@ export const useDatasetsStore = defineStore('datasets', () => {
 
     } catch (e: any) {
       console.error("Upload error:", e);
-      error.value = "Failed to upload dataset.";
+      const msg = e.response?.data?.detail || "Failed to upload dataset.";
+      error.value = msg;
+      throw new Error(msg);
     } finally {
       isLoading.value = false;
     }
@@ -236,9 +243,38 @@ export const useDatasetsStore = defineStore('datasets', () => {
 
     } catch (e: any) {
       console.error("Reanalyze error:", e);
-      error.value = "Failed to update target column.";
+      const msg = e.response?.data?.detail || "Failed to update target column.";
+      error.value = msg;
+      throw new Error(msg);
     } finally {
       isLoading.value = false;
+    }
+  };
+
+  const validateTarget = async (id: string, targetCol: string) => {
+    const dataset = datasets.value.find(d => d.id === id);
+    if (!dataset || !authStore.user) {
+      throw new Error("Dataset or user not found");
+    }
+
+    const parts = dataset.storagePath.split('/');
+    const actualFileName = parts[parts.length - 1];
+
+    if (!actualFileName) {
+      throw new Error("Invalid storage path");
+    }
+
+    const formData = new FormData();
+    formData.append('userId', authStore.user.uid);
+    formData.append('fileName', actualFileName);
+    formData.append('targetCol', targetCol);
+
+    try {
+      await axios.post(`${PYTHON_API_URL}/reanalyze`, formData);
+      return true;
+    } catch (e: any) {
+      const msg = e.response?.data?.detail || "Validation failed.";
+      throw new Error(msg);
     }
   };
 
@@ -357,6 +393,7 @@ export const useDatasetsStore = defineStore('datasets', () => {
     totalUserUsageBytes,
     fetchDatasetDetails,
     fetchEDA,
-    preprocessDataset
+    preprocessDataset,
+    validateTarget
   };
 });

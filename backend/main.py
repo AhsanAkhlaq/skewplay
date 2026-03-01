@@ -20,13 +20,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 # ML & Stats Imports
-from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler, OneHotEncoder, OrdinalEncoder, RobustScaler, PowerTransformer, FunctionTransformer
-from sklearn.impute import SimpleImputer, KNNImputer
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
-from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import TargetEncoder
-from sklearn.feature_selection import VarianceThreshold, SelectKBest, f_classif, f_regression
 from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, roc_auc_score
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -39,6 +36,36 @@ from analysis import ImbalanceAnalyzer
 
 from utils import get_user_storage_usage
 from json_utils import sanitize_for_json
+
+def validate_classification_target(df: pd.DataFrame, target_col: str) -> dict:
+    if target_col not in df.columns:
+        return {"valid": False, "error": "Target column not found."}
+        
+    target_series = df[target_col]
+    
+    # 1. Strict Data Type Check
+    if pd.api.types.is_float_dtype(target_series):
+        return {"valid": False, "error": "Target contains decimals (float). This is a regression problem. Please select a categorical target."}
+        
+    # 2. The Absolute Cap (For Integers/Strings)
+    unique_count = target_series.nunique()
+    MAX_CLASSES = 50 # Safe absolute cap
+    
+    if unique_count > MAX_CLASSES:
+        return {"valid": False, "error": f"Target has {unique_count} unique classes (Max allowed is {MAX_CLASSES}). This looks like continuous data or an ID column."}
+        
+    if unique_count < 2:
+        return {"valid": False, "error": "Target must have at least 2 unique classes."}
+        
+    # 3. The Minimum Minority Samples Rule (For SMOTE)
+    MIN_SAMPLES_NEEDED = 6 # k=5 neighbors + 1
+    class_counts = target_series.value_counts()
+    rarest_class_count = class_counts.min()
+    
+    if rarest_class_count < MIN_SAMPLES_NEEDED:
+        return {"valid": False, "error": f"The rarest class only has {rarest_class_count} rows. Imbalance algorithms require at least {MIN_SAMPLES_NEEDED} rows per class to work."}
+        
+    return {"valid": True, "message": "Valid classification target."}
 
 app = FastAPI()
 
@@ -167,7 +194,8 @@ async def get_samples():
 async def upload_file(
     file: UploadFile = File(...),
     userId: str = Form(...),
-    targetCol: Optional[str] = Form(None)
+    targetCol: Optional[str] = Form(None),
+    description: Optional[str] = Form(None)
 ):
     try:
         # 1. Create User Directory Structure: storage/{userId}/datasets/
@@ -184,6 +212,14 @@ async def upload_file(
             shutil.copyfileobj(file.file, buffer)
             
         # 4. Analyze with User's Target Column preference
+        if targetCol:
+            # We read the saved file just to validate the target column properly
+            df_val = pd.read_csv(file_path)
+            validation = validate_classification_target(df_val, targetCol)
+            if not validation["valid"]:
+                os.remove(file_path) # cleanup
+                raise HTTPException(status_code=400, detail=validation["error"])
+
         analysis = analyze_csv(file_path, user_target_col=targetCol)
         
         # 5. Return Metadata
@@ -193,11 +229,15 @@ async def upload_file(
         return sanitize_for_json({
             "fileName": file.filename, 
             "storagePath": storage_path,
+            "description": description,
             **analysis
         })
+    except HTTPException as he:
+        # Re-raise HTTPExceptions so frontend receives them correctly
+        raise he
     except Exception as e:
         print(f"Error uploading file: {e}")
-        raise HTTPException(status_code=500, detail="Failed to upload file")    
+        raise HTTPException(status_code=500, detail="Failed to upload file")  
 
 
 @app.post("/reanalyze")
@@ -216,11 +256,19 @@ async def reanalyze_dataset(
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="File not found")
             
-        # 2. Re-Analyze
+        # 2. Validate Target Column
+        df = pd.read_csv(file_path)
+        validation = validate_classification_target(df, targetCol)
+        if not validation["valid"]:
+            raise HTTPException(status_code=400, detail=validation["error"])
+
+        # 3. Re-Analyze
         analysis = analyze_csv(file_path, user_target_col=targetCol)
         
         return sanitize_for_json(analysis)
 
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"Reanalyze failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -274,7 +322,7 @@ async def get_dataset_details(
             
         # 3. Frequency Tables (Top 5 for categorical/object)
         freq_tables = {}
-        for col in df.select_dtypes(include=['object', 'category']).columns:
+        for col in df.select_dtypes(include=['object', 'category', 'str']).columns:
              if df[col].nunique() < 50: # Only if reasonable cardinality
                  counts = df[col].value_counts().head(5).to_dict()
                  freq_tables[col] = counts
@@ -322,33 +370,28 @@ def calculate_pca(df, target_col):
         
         # Limit rows first to speed up processing
         if len(df_pca) > 2000:
-             df_pca = df_pca.sample(2000, random_state=42)
-        print("4.1")    
+             df_pca = df_pca.sample(2000, random_state=42)   
         # Encode Categoricals
         le = LabelEncoder()
-        for col in df_pca.select_dtypes(include=['object', 'category']).columns:
+        for col in df_pca.select_dtypes(include=['object', 'category', 'str']).columns:
              df_pca[col] = le.fit_transform(df_pca[col].astype(str))
              
         # Now we have all numeric (native or encoded)
         if df_pca.shape[1] < 2:
             return []
-        print("4.2")    
         # Standardize
         scaler = StandardScaler()
         scaled_data = scaler.fit_transform(df_pca)
-        print("4.3")
         # PCA
         n_comps = min(3, scaled_data.shape[0], scaled_data.shape[1])
         pca = PCA(n_components=n_comps)
         components = pca.fit_transform(scaled_data)
-        print("4.4")
         # Get targets for coloring
         targets = []
         if target_col and target_col in df.columns:
             targets = df.loc[df_pca.index, target_col].astype(str).tolist()
         else:
             targets = ["n/a"] * len(components)
-        print("4.5")    
         # Format
         plot_data = []
         for i in range(len(components)):
@@ -358,7 +401,6 @@ def calculate_pca(df, target_col):
                 "z": float(components[i, 2]) if n_comps > 2 else 0.0,
                 "target": targets[i]
             })
-        print("4.6")
         return plot_data
     except Exception as e:
         print(f"PCA Error: {e}")
@@ -372,7 +414,6 @@ async def perform_eda(
 ):
     try:
         # Resolve path
-        print(1)
         if fileName in SAMPLE_TARGETS:
              file_path = os.path.join(SAMPLES_DIR, fileName)
         else:
@@ -405,8 +446,7 @@ async def perform_eda(
         # --- 1. Univariate Analysis ---
         univariate = {}
         numeric_cols = df.select_dtypes(include=['number']).columns
-        categorical_cols = df.select_dtypes(include=['object', 'category']).columns
-        print(2)
+        categorical_cols = df.select_dtypes(include=['object', 'category', 'str']).columns
         for col in df.columns:
             col_data = df[col]
             stats_obj = {}
@@ -464,7 +504,6 @@ async def perform_eda(
                 stats_obj['counts'] = counts.to_dict()
                 
             univariate[col] = stats_obj
-        print(3)
         # --- 2. Bivariate (Correlation) ---
         correlation = {}
         if len(numeric_cols) > 1:
@@ -483,15 +522,15 @@ async def perform_eda(
 
         # --- 3. Feature Importance (Quick RF) ---
         feature_importance = {}
-        target_col = None
+        target_col = targetCol
         
-        # Try to guess target (last column or one with least unique values if binary?)
-        # Let's search for "class", "target", "label"
-        potential_targets = [c for c in df.columns if c.lower() in ['class', 'target', 'label', 'y']]
-        if potential_targets:
-            target_col = potential_targets[0]
-        else:
-            target_col = df.columns[-1]
+        # Try to guess target ONLY if targetCol is not provided
+        if not target_col or target_col == 'Unknown':
+            potential_targets = [c for c in df.columns if c.lower() in ['class', 'target', 'label', 'y']]
+            if potential_targets:
+                target_col = potential_targets[0]
+            else:
+                target_col = df.columns[-1]
             
         if target_col and target_col in df.columns:
              # Preprocess for RF
@@ -499,7 +538,7 @@ async def perform_eda(
              
              # Encode Categoricals
              le = LabelEncoder()
-             for col in df_rf.select_dtypes(include=['object']).columns:
+             for col in df_rf.select_dtypes(include=['object', 'str']).columns:
                  df_rf[col] = le.fit_transform(df_rf[col].astype(str))
                  
              # Impute
@@ -539,17 +578,8 @@ async def perform_eda(
                  })
              feature_importance['scores'] = feats
              feature_importance['target'] = target_col
-        print(4)
         # --- 4. PCA and Target Stats ---
-        if targetCol:
-            pass
-        
-        # Detect Target Col if not provided (simple heuristic: last col)
-        if not targetCol or targetCol == 'Unknown':
-            targetCol = df.columns[-1]
-            
-        pca_data = calculate_pca(df, targetCol)
-        print(5)
+        pca_data = calculate_pca(df, target_col)
         return sanitize_for_json({
             "fileName": fileName,
             "univariate": univariate,
@@ -637,9 +667,14 @@ async def analyze_imbalance(
         
         if not os.path.exists(X_train_path) or not os.path.exists(y_train_path):
              return sanitize_for_json({"status": "NoData"})
-
+        
         X_train = pd.read_parquet(X_train_path)
-        y_train = pd.read_parquet(y_train_path).iloc[:, 0]
+        y_train = pd.read_parquet(y_train_path)
+        print('eeee')
+        print(y_train.head())
+        y_train = y_train.iloc[:, 0]
+        print('wwww')
+        print(y_train.head())
 
         analyzer = ImbalanceAnalyzer()
         metrics = analyzer.calculate_metrics(X_train, y_train)
@@ -676,6 +711,7 @@ async def balance_data(
         # 3. Load Data
         X_train = pd.read_parquet(X_train_path)
         y_train = pd.read_parquet(y_train_path).iloc[:, 0] # Series
+   
         
         # 4. Initialize Balancing Pipeline
         balancing_cfg = cfg.get('imbalance', {})
@@ -689,7 +725,7 @@ async def balance_data(
         os.makedirs(balancing_dir, exist_ok=True)
         
         X_resampled.to_parquet(os.path.join(balancing_dir, "X_train_resampled.parquet"))
-        pd.DataFrame(y_resampled, columns=['target']).to_parquet(os.path.join(balancing_dir, "y_train_resampled.parquet"))
+        pd.DataFrame({'target': y_resampled}).to_parquet(os.path.join(balancing_dir, "y_train_resampled.parquet"))
         
         # 7. Post-Processing Analysis (PCA for visualization)
         analyzer = ImbalanceAnalyzer()

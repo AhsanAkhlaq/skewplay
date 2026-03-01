@@ -4,7 +4,14 @@
     <!-- SUB-HEADER -->
     <div class="px-6 py-4 border-b bg-surface d-flex justify-space-between align-center">
         <div>
-            <h2 class="text-h6 font-weight-bold mb-1">Class Balancing</h2>
+            <h2 class="text-h6 font-weight-bold mb-1">
+                Class Balancing
+                <v-tooltip text="Techniques to artificially balance the number of samples in each class to prevent model bias." location="right" max-width="300">
+                    <template v-slot:activator="{ props }">
+                        <v-icon v-bind="props" size="small" class="ms-2 text-medium-emphasis pb-1" tabindex="0">mdi-information-outline</v-icon>
+                    </template>
+                </v-tooltip>
+            </h2>
             <div class="text-caption text-medium-emphasis">
                 Address imbalanced datasets by resampling the training data. 
                 <span class="text-primary font-weight-bold ml-1">Changes apply ONLY to Training set.</span>
@@ -98,22 +105,33 @@
                     bg-color="background"
                 >
                      <template v-slot:item="{ props, item }">
-                        <v-list-item v-bind="props" :subtitle="item.raw.subtitle" :disabled="item.raw.disabled" :class="{'text-medium-emphasis': item.raw.disabled}">
-                            <template v-slot:append v-if="item.raw.disabled">
-                                <v-tooltip location="start">
-                                    <template v-slot:activator="{ props }">
-                                        <v-icon v-bind="props" size="small" color="error">mdi-block-helper</v-icon>
+                        <v-tooltip :text="item.raw.subtitle" location="right" open-delay="300" max-width="300">
+                            <template v-slot:activator="{ props: tooltipProps }">
+                                <v-list-item v-bind="{...props, ...tooltipProps}" :subtitle="item.raw.subtitle" :disabled="item.raw.disabled" :class="{'text-medium-emphasis': item.raw.disabled}">
+                                    <template v-slot:append v-if="item.raw.disabled">
+                                        <v-tooltip location="start">
+                                            <template v-slot:activator="{ props: blockProps }">
+                                                <v-icon v-bind="blockProps" size="small" color="error">mdi-block-helper</v-icon>
+                                            </template>
+                                            <span>{{ item.raw.reason }}</span>
+                                        </v-tooltip>
                                     </template>
-                                    <span>{{ item.raw.reason }}</span>
-                                </v-tooltip>
+                                </v-list-item>
                             </template>
-                        </v-list-item>
+                        </v-tooltip>
                     </template>
                 </v-select>
 
                 <!-- Dynamic Params -->
                 <div v-if="showNeighborsParam">
-                     <div class="text-caption font-weight-bold mb-1">K Neighbors ({{ modelValue.params.k_neighbors }})</div>
+                     <div class="text-caption font-weight-bold mb-1 d-flex align-center">
+                         K Neighbors ({{ modelValue.params.k_neighbors }})
+                         <v-tooltip text="The number of nearest neighbors to use when generating synthetic samples or cleaning noise. Higher values consider a broader neighborhood." location="top" max-width="300">
+                             <template v-slot:activator="{ props }">
+                                 <v-icon v-bind="props" size="small" class="ms-1 text-medium-emphasis">mdi-information-outline</v-icon>
+                             </template>
+                         </v-tooltip>
+                     </div>
                      <v-slider
                         v-model="modelValue.params.k_neighbors"
                         min="1"
@@ -127,13 +145,19 @@
                 </div>
                 
                 <div v-if="showReplacementParam">
-                    <v-switch
-                        v-model="modelValue.params.replacement"
-                        label="With Replacement"
-                        color="primary"
-                        density="compact"
-                        hide-details
-                    ></v-switch>
+                    <v-tooltip text="Whether to sample with replacement. If true, a sample can be selected multiple times." location="top" max-width="250">
+                        <template v-slot:activator="{ props }">
+                            <div v-bind="props" class="d-inline-flex">
+                                <v-switch
+                                    v-model="modelValue.params.replacement"
+                                    label="With Replacement"
+                                    color="primary"
+                                    density="compact"
+                                    hide-details
+                                ></v-switch>
+                            </div>
+                        </template>
+                    </v-tooltip>
                 </div>
             </div>
 
