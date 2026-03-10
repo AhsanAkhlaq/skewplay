@@ -1,156 +1,80 @@
-# SkewPlay · Vue + Firebase shell
+# SkewPlay: A No-Code Web Platform for Handling Imbalanced Datasets
 
-This `frontend/` workspace implements the first 10 % milestone for the SkewPlay platform:
+**SkewPlay** is an interactive, browser-based Machine Learning platform designed specifically to tackle the pervasive problem of **Class Imbalance** in tabular datasets. 
 
-- Vue 3 + TypeScript + Vite + Pinia + Vue Router + Vuetify 3
-- Firebase Auth + Firestore + Storage bootstrap (modular SDK v10)
-- Minimal, modern UI shell (Landing, Auth, Dashboard, Datasets, Workflows, Profile)
-- CRUD flows covering UC-01/02/03/05/13 from the SRS
+By abstracting away the complexities of Python programming, SkewPlay provides a visual, step-by-step pipeline wizard that allows users of any skill level to perform automated data analysis, apply sophisticated balancing techniques, train models, and evaluate them using specialized metrics.
 
-## Setup
+---
+
+## 🛑 Problem Statement
+
+In real-world Machine Learning applications—spanning domains like fraud detection, medical diagnosis, and predictive maintenance—datasets are rarely balanced. Often, the class we are most interested in predicting (e.g., fraudulent transactions or rare diseases) represents a tiny fraction of the overall data. 
+
+**The Challenge:**
+Standard Machine Learning algorithms are designed to maximize overall accuracy. When trained on highly skewed data, these models inevitably become biased toward the majority class. A model might achieve "99% accuracy" simply by predicting the majority class every single time, while completely failing to identify the crucial minority instances.
+
+**The Current Barrier:**
+Addressing class imbalance requires specialized knowledge (e.g., SMOTE, undersampling, ADASYN) and proficiency in coding (Python, scikit-learn, imbalanced-learn). This creates a steep learning curve and a high barrier to entry for researchers, analysts, and students who understand their domains but lack deep programming expertise. 
+
+---
+
+## 🎯 Project Objectives
+
+SkewPlay was developed to dismantle these barriers through the following core objectives:
+
+1. **Democratize Machine Learning:** Provide an intuitive, no-code web environment where users can resolve dataset imbalance and train models without writing a single line of script.
+2. **Automate End-to-End Experimentation:** Guide users effortlessly through a structured pipeline: Data Upload ➔ Automated EDA ➔ Preprocessing ➔ Resampling Strategeis ➔ Model Selection ➔ Evaluation.
+3. **Integrate Intelligent AI Guidance:** Leverage Large Language Models to instantly analyze complex dataset characteristics and recommend optimal preprocessing configurations and balancing strategies.
+4. **Enforce Robust Evaluation Metrics:** Shift reliance away from misleading standard accuracy by evaluating performance exclusively through robust, imbalance-aware metrics like **F1-Minority, PR-AUC, G-Mean**, and interactive visualizations (Confusion Matrices, Precision-Recall Curves).
+5. **Scale Automated Data Collection (Telemetry):** Systematically collect and aggregate anonymized pipeline statistics to create a massive, longitudinal dataset of Machine Learning experiments.
+
+---
+
+## 📊 Data Collection & Telemetry Engine
+
+A unique and powerful feature of SkewPlay is its built-in data collection engine. 
+
+As users interact with the platform and run experiments, the system silently records the end-to-end lifecycle of every pipeline executed. We are not just building a tool; we are building a dataset of how Machine Learning models respond to various interventions on skewed data.
+
+**What is Collected?**
+For every executed workflow, the system aggregates:
+*   **Dataset Meta-Stats:** Number of instances, feature count, missing value ratios, and precise class imbalance severity (e.g., 1:100 ratio).
+*   **Pipeline Configuration:** The exact preprocessing steps chosen, the balancing strategy applied (e.g., SMOTE + ENN), and the model hyperparameters.
+*   **Execution Results:** The resulting model performance measured against our specialized metrics (F1-Minority, G-Mean, PR-AUC).
+
+**The Goal of Telemetry:**
+By capturing the relationship between `[Dataset Stats] + [Chosen Pipeline] = [Final Result]`, we are generating a massive, highly structured "Metadataset." This aggregated dataset will eventually be used to train specialized Meta-Learning models capable of predicting the absolute optimal pipeline configuration for any new, unseen imbalanced dataset automatically.
+
+---
+
+## 🛠️ Technology Stack
+
+SkewPlay relies on a highly professional, decoupled architecture:
+
+*   **Frontend (UI/UX):** **Vue.js 3** (Composition API) powers the responsive Single Page Application.
+*   **Backend Server:** **FastAPI** handles high-concurrency API requests bridging the frontend with the ML logic.
+*   **Core Logic:** **Python** powers the data wrangling and modeling, utilizing `Pandas`, `scikit-learn`, and `imbalanced-learn`.
+*   **Cloud Infrastructure:** **Firebase** manages secure User Authentication and NoSQL database storage for user profiles and workflow metadata.
+
+---
+
+## 🚀 Setup & Installation
+
+*(If you plan to open-source or share the code, you can add setup instructions here)*
 
 ```bash
+# 1. Clone the repository
+git clone https://github.com/your-username/SkewPlay.git
+
+# 2. Setup the Frontend
 cd frontend
-cp env.example .env # fill with your Firebase keys
 npm install
 npm run dev
+
+# 3. Setup the Backend
+cd backend
+python -m venv venv
+source venv/bin/activate  # Or `venv\Scripts\activate` on Windows
+pip install -r requirements.txt
+uvicorn main:app --reload
 ```
-
-## Scripts
-
-- `npm run dev` — start Vite dev server
-- `npm run build` — type-check + production build
-- `npm run preview` — preview built assets
-
-## Firebase
-
-The project expects a Firebase project with Authentication (Email/Password) and Firestore enabled. Firestore collections:
-
-- `users` — created automatically on first register/login
-- `datasets` — dataset metadata CRUD
-- `workflows` — workflow stage tracker + experiment notes
-
-# SkewPlay Project Overview
-
-**SkewPlay** is an interactive web platform designed for experimenting with and resolving class imbalance in machine learning datasets. It allows users to upload datasets, apply various preprocessing and balancing techniques (like SMOTE), train models, and visualize results.
-
----
-
-## 1. Technology Stack
-
-### Frontend (Client-Side)
-- **Framework**: [Vue.js 3](https://vuejs.org/) (Composition API)
-- **Build Tool**: [Vite](https://vitejs.dev/)
-- **UI Component Library**: [Vuetify 3](https://vuetifyjs.com/) (Material Design)
-- **State Management**: [Pinia](https://pinia.vuejs.org/)
-- **Routing**: [Vue Router 4](https://router.vuejs.org/)
-- **Authentication & Metadata**: [Firebase](https://firebase.google.com/) (Auth, Firestore)
-- **HTTP Client**: [Axios](https://axios-http.com/)
-- **Visualization**: `chart.js` / `vue-chartjs`
-
-### Backend (Server-Side)
-- **Runtime**: Python 3.x
-- **Framework**: [FastAPI](https://fastapi.tiangolo.com/)
-- **Server**: Uvicorn
-- **Data Processing**: Pandas, NumPy
-- **Machine Learning**: Scikit-Learn (RandomForest, SMOTE via Imbalanced-Learn implied)
-- **Plotting**: Matplotlib, Seaborn (for generating static asset images)
-
-### Infrastructure & Storage
-- **Local Storage**: Filesystem-based storage for large CSVs and artifacts (in [storage/](file:///d:/University%20Workspace/FinalYearProject/skewplay2/SkewPlay/backend/utils.py#3-24) directory).
-- **Cloud Database**: Firebase Firestore for user profiles and metadata pointers.
-
----
-
-## 2. Project Structure
-
-```
-SkewPlay/
-├── backend/                  # Python API Server
-│   ├── main.py               # Entry point: API routes, ML logic, File handling
-│   ├── utils.py              # Utility functions (e.g., storage usage calc)
-│   └── json_utils.py         # JSON serialization helpers (NaN handling)
-│
-├── src/                      # Vue.js Frontend Source
-│   ├── components/           # (Currently minimal, mostly Views used)
-│   ├── layouts/              
-│   │   └── AppShell.vue      # Main wrapper: Sidebar, Header, Auth checks
-│   ├── lib/
-│   │   └── firebase.ts       # Firebase initialization
-│   ├── plugins/
-│   │   └── vuetify.ts        # Theme configuration (Light/Dark mode)
-│   ├── router/
-│   │   └── index.ts          # Route definitions & Navigation Guards
-│   ├── services/
-│   │   └── api.ts            # Axios instance connecting to Backend API
-│   ├── stores/               # Pinia State Management
-│   │   ├── auth.ts           # User session, Profile management
-│   │   ├── datasets.ts       # Dataset metadata, Upload/Delete actions
-│   │   ├── workflows.ts      # Experiment configurations, Running jobs
-│   │   └── ui.ts             # Global UI state (Snackbars, Dialogs)
-│   └── views/                # Page Views
-│       ├── DashboardView.vue # User dashboard (Stats, Quick actions)
-│       ├── LandingView.vue   # Public landing page
-│       ├── auth/             # Login/Register pages
-│       ├── datasets/         # Dataset Lab (Upload, EDA, Preview)
-│       ├── workflows/        # Experimentation Interface
-│       │   ├── WorkflowsView.vue  # List of experiments
-│       │   ├── WorkflowEditor.vue # 5-Step creation wizard
-│       │   └── steps/        # Step components (Dataset, Preprocessing, etc.)
-│       └── profile/          # User settings & Tier management
-│
-├── storage/                  # Local Data Storage (Ignored by Git typically)
-│   ├── samples/              # Public sample datasets
-│   └── users/                # User-specific data
-│       └── {userId}/
-│           ├── datasets/     # Uploaded CSVs
-│           └── artifacts/    # Generated models/plots
-│
-├── .env                      # Environment variables (API URL, Firebase Config)
-├── index.html                # App entry point
-├── package.json              # Frontend dependencies
-└── vite.config.ts            # Vite configuration
-```
-
----
-
-## 3. Key Components & Workflows
-
-### A. Authentication & User Profile
-- **Logic**: Managed by [src/stores/auth.ts](file:///d:/University%20Workspace/FinalYearProject/skewplay2/SkewPlay/src/stores/auth.ts) and Firebase Auth.
-- **Data**: User profiles (Tier, Usage Stats) are stored in Firestore (`users` collection).
-- **Flow**: Login -> Firebase Auth -> Fetch Firestore Profile -> App Access.
-
-### B. Dataset Management ("Dataset Lab")
-- **Upload**: Files are sent to [backend/main.py](file:///d:/University%20Workspace/FinalYearProject/skewplay2/SkewPlay/backend/main.py) (`/upload`).
-- **Storage**: Saved locally in `storage/users/{uid}/datasets`.
-- **Analysis**: Backend uses Pandas to detect:
-    - Row/Column counts.
-    - Column types.
-    - Missing values (Null detection).
-    - Class imbalance ratios.
-- **EDA**: [DatasetsView.vue](file:///d:/University%20Workspace/FinalYearProject/skewplay2/SkewPlay/src/views/datasets/DatasetsView.vue) requests specific analysis (Univariate, Bivariate) which the backend generates on-demand.
-
-### C. Workflow Engine (The core "SkewPlay" feature)
-- **Concept**: A "Workflow" is an experiment pipeline.
-- **Steps**:
-    1.  **Dataset**: Select source and Target Variable.
-    2.  **Preprocessing**: Handling missing values, Scaling (MinMax/Standard), Encoding.
-    3.  **Imbalance**: Choose technique (None, SMOTE, RandomOverSampler, etc.).
-    4.  **Model**: Select Algorithm (RandomForest, SVM, etc.) and Hyperparameters.
-    5.  **Results**: View Metrics (Accuracy, F1, Confusion Matrix).
-- **Execution**: The [WorkflowEditor.vue](file:///d:/University%20Workspace/FinalYearProject/skewplay2/SkewPlay/src/views/workflows/WorkflowEditor.vue) collects configuration into a JSON object.
-- **Run**: Sent to `/run` endpoint in backend. The backend constructs a Scikit-Learn Pipeline, fits the model, and returns metrics + confusion matrix image.
-
----
-
-## 4. API & Data Flow
-
-1.  **Client Request**: Frontend (via [services/api.ts](file:///d:/University%20Workspace/FinalYearProject/skewplay2/SkewPlay/src/services/api.ts)) sends multipart/form-data (for files) or JSON (for config) to `http://localhost:8000`.
-2.  **FastAPI Handling**: [backend/main.py](file:///d:/University%20Workspace/FinalYearProject/skewplay2/SkewPlay/backend/main.py) receives the request.
-3.  **Processing**:
-    -   **Pandas** reads the CSV.
-    -   **Preprocessing** aligns data.
-    -   **Imbalanced-Learn** applies sampling strategies.
-    -   **Scikit-Learn** trains the classifier.
-4.  **Response**: JSON data (metrics) or Static Files (images/CSVs) served from `/storage` mount.
