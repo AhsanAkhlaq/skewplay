@@ -997,10 +997,13 @@ async def get_admin_stats():
         # Real Stripe polling for revenue
         total_revenue = 0
         try:
-            charges = stripe.Charge.list(limit=100)
+            charges = stripe.Charge.list(limit=100, expand=['data.balance_transaction'])
             for c in charges.data:
                 if c.status == 'succeeded':
-                    total_revenue += c.amount
+                    if hasattr(c, 'balance_transaction') and hasattr(c.balance_transaction, 'amount'):
+                        total_revenue += c.balance_transaction.amount
+                    else:
+                        total_revenue += c.amount
         except Exception as stripe_e:
             print(f"Stripe Stats Error: {stripe_e}")
             pass
@@ -1066,22 +1069,54 @@ async def get_admin_users():
 @app.get("/admin/payments")
 async def get_admin_payments():
     try:
-        charges = stripe.Charge.list(limit=100)
+        charges = stripe.Charge.list(limit=100, expand=['data.balance_transaction', 'data.payment_intent'])
+        
+        # Pre-fetch users mapping
+        user_map = {}
+        if firebase_db:
+            try:
+                users_stream = firebase_db.collection('users').stream()
+                for doc in users_stream:
+                    data = doc.to_dict()
+                    user_map[doc.id] = {
+                        "name": data.get('displayName', "Unknown"),
+                        "email": data.get('email', "Unknown")
+                    }
+            except Exception as e:
+                print(f"Error fetching users for payments: {e}")
+
         payments = []
         for c in charges.data:
+            # 1. Attempt to find a robust user ID first (sometimes in charge meta, or payment_intent meta)
+            user_id = c.metadata.get('userId')
+            if not user_id and getattr(c, 'payment_intent', None) and hasattr(c.payment_intent, 'metadata'):
+                user_id = c.payment_intent.metadata.get('userId')
+
             # We approximate email from billing details or receipt email. 
             email = c.billing_details.email or c.receipt_email or "Unknown"
             name = c.billing_details.name or "Unknown"
+
+            # 2. If a valid user ID maps to Firebase, override the unknown values
+            if user_id and user_id in user_map:
+                name = user_map[user_id]["name"]
+                email = user_map[user_id]["email"]
             
             # If it's a test checkout without details, try to identify
             if email == "Unknown" and name == "Unknown":
                 name = "Stripe Checkout User"
             
+            amount = c.amount
+            if hasattr(c, 'balance_transaction') and hasattr(c.balance_transaction, 'amount'):
+                amount = c.balance_transaction.amount
+
+            # Date formatting (added %I:%M %p for 12-hr time formatting)
+            dt_formatted = datetime.fromtimestamp(c.created).strftime("%Y-%m-%d %I:%M %p")
+
             payments.append({
                 "userName": name,
                 "userEmail": email,
-                "amount": c.amount,
-                "date": datetime.fromtimestamp(c.created).isoformat(),
+                "amount": amount,
+                "date": dt_formatted,
                 "status": c.status
             })
         return payments

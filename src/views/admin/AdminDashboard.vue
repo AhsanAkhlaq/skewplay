@@ -330,12 +330,12 @@ const formatDate = (val: any) => {
   try {
     // Handle Firestore Timestamp (if coming directly from SDK)
     if (typeof val === 'object' && val.seconds) {
-      return new Date(val.seconds * 1000).toLocaleDateString();
+      return new Date(val.seconds * 1000).toLocaleString();
     }
     // Handle ISO string or Date object
     const date = new Date(val);
     if (isNaN(date.getTime())) return 'N/A';
-    return date.toLocaleDateString();
+    return date.toLocaleString();
   } catch (e) {
     return 'N/A';
   }
