@@ -9,7 +9,8 @@ import {
   deleteDoc,
   updateDoc,
   doc,
-  serverTimestamp
+  serverTimestamp,
+  increment
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import api from '../services/api';
@@ -169,6 +170,12 @@ export const useWorkflowsStore = defineStore('workflows', () => {
       };
 
       const docRef = await addDoc(collection(db, 'workflows'), newWorkflow);
+
+      // Increment the user's total experimentsRun count in Firebase so it shows up in Admin Stats
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        "usageStats.experimentsRun": increment(1)
+      });
 
       const created = {
         id: docRef.id,

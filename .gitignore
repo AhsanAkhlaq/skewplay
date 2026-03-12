@@ -26,3 +26,7 @@ __pycache__
 
 # Ignore samples folder
 storage/users
+
+# Secrets
+firebase-credentials.json
+backend/firebase-credentials.json

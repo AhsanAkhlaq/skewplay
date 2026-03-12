@@ -20,6 +20,12 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
+
+const ADMIN_EMAILS = [
+  'admin@gmail.com',
+  'abdul@gmail.com',
+];
+
 // --- Types ---
 export type Tier = 'Basic' | 'Advanced';
 
@@ -39,9 +45,11 @@ export interface UserProfile {
   displayName: string | null;
   photoURL?: string | null;
   tier: Tier;
+  role: 'admin' | 'user';
   createdAt?: any;
   usageStats: UserUsageStats;
   billingHistory: UserBillingRecord[];
+  subscriptionEndDate?: string;
 }
 
 function mapAuthError(code: string): string {
@@ -124,6 +132,7 @@ export const useAuthStore = defineStore('auth', {
             displayName: user.displayName || 'New User',
             photoURL: user.photoURL || null,
             tier: 'Basic',
+            role: 'user',
             createdAt: serverTimestamp(),
             usageStats: { experimentsRun: 0, storageUsed: 0 },
             billingHistory: []
@@ -152,6 +161,7 @@ export const useAuthStore = defineStore('auth', {
           email,
           displayName,
           tier: 'Basic',
+          role: 'user',
           createdAt: serverTimestamp(),
           usageStats: { experimentsRun: 0, storageUsed: 0 },
           billingHistory: []
@@ -213,7 +223,29 @@ export const useAuthStore = defineStore('auth', {
       try {
         const docSnap = await getDoc(doc(db, 'users', uid));
         if (docSnap.exists()) {
-          this.profile = docSnap.data() as UserProfile;
+          const profileData = docSnap.data() as UserProfile;
+
+          // MANUAL OVERRIDE: Check if user email is in the admin list
+          if (ADMIN_EMAILS.includes(profileData.email)) {
+            profileData.role = 'admin';
+          }
+
+          // --- Subscription Lazy Check ---
+          if (profileData.tier === 'Advanced' && profileData.subscriptionEndDate) {
+            const endDate = new Date(profileData.subscriptionEndDate);
+            if (Date.now() > endDate.getTime()) {
+              // Downgrade to Basic
+              profileData.tier = 'Basic';
+              profileData.subscriptionEndDate = undefined;
+              // Persist downgrade to Firestore
+              await updateDoc(doc(db, 'users', uid), {
+                tier: 'Basic',
+                subscriptionEndDate: null
+              });
+            }
+          }
+
+          this.profile = profileData;
         }
       } catch (e) {
         console.error("Error fetching profile:", e);
@@ -232,8 +264,17 @@ export const useAuthStore = defineStore('auth', {
           updates.displayName = payload.displayName;
         }
 
-        if (payload.displayName) updates.displayName = payload.displayName;
-        if (payload.tier) updates.tier = payload.tier;
+        if (payload.tier) {
+          updates.tier = payload.tier;
+
+          if (payload.tier === 'Advanced') {
+            const endDate = new Date();
+            endDate.setDate(endDate.getDate() + 30);
+            updates.subscriptionEndDate = endDate.toISOString();
+          } else {
+            updates.subscriptionEndDate = null; // Basic tier doesn't have an end date
+          }
+        }
 
         if (Object.keys(updates).length > 0) {
           await updateDoc(doc(db, 'users', this.user.uid), updates);

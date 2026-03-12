@@ -217,6 +217,18 @@
           >
             {{ isBasic ? 'Upgrade Tier' : 'Manage Subscription' }}
           </v-btn>
+
+          <!-- TEST BUTTON (Temporary) -->
+          <v-btn 
+            v-if="!isBasic"
+            block 
+            variant="tonal"
+            color="warning"
+            class="mb-3"
+            @click="testDowngrade"
+          >
+            Test: Simulate Expired Sub
+          </v-btn>
           
         </v-card>
 
@@ -326,6 +338,24 @@ const goToHeroWorkflow = () => {
     if (latestWorkflow.value) {
         router.push(`/app/workflows/${latestWorkflow.value.id}`);
     }
+};
+
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+
+const testDowngrade = async () => {
+    if (!authStore.user) return;
+    
+    // Simulate setting the end date to 5 days ago
+    const pastDate = new Date();
+    pastDate.setDate(pastDate.getDate() - 5);
+    
+    await updateDoc(doc(db, 'users', authStore.user.uid), { 
+      tier: 'Advanced', 
+      subscriptionEndDate: pastDate.toISOString() 
+    });
+    
+    alert("Test: Subscription set to mock-expire 5 days ago! \n\nPlease refresh the page to see the Lazy Check downgrade you.");
 };
 
 </script>

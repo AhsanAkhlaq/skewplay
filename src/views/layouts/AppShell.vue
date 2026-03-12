@@ -188,12 +188,21 @@ const toggleDrawer = () => {
     }
 };
 
-const links = [
-  { label: 'Dashboard', to: '/app/dashboard', icon: 'mdi-view-dashboard-outline' },
-  { label: 'Datasets', to: '/app/datasets', icon: 'mdi-database-outline' },
-  { label: 'Experiments', to: '/app/workflows', icon: 'mdi-state-machine' },
-  { label: 'Profile', to: '/app/profile', icon: 'mdi-account-circle-outline' },
-];
+const links = computed(() => {
+  if (authStore.profile?.role === 'admin') {
+    return [
+      { label: 'Admin Portal', to: '/app/admin', icon: 'mdi-shield-account' },
+      { label: 'Profile', to: '/app/profile', icon: 'mdi-account-circle-outline' },
+    ];
+  }
+
+  return [
+    { label: 'Dashboard', to: '/app/dashboard', icon: 'mdi-view-dashboard-outline' },
+    { label: 'Datasets', to: '/app/datasets', icon: 'mdi-database-outline' },
+    { label: 'Experiments', to: '/app/workflows', icon: 'mdi-state-machine' },
+    { label: 'Profile', to: '/app/profile', icon: 'mdi-account-circle-outline' },
+  ];
+});
 
 const initials = computed(() => {
   const name = authStore.profile?.displayName ?? authStore.user?.email ?? 'U';
