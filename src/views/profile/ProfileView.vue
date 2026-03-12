@@ -1,19 +1,23 @@
 <template>
   <v-container max-width="900">
-    <v-row>
+    <v-row justify="center">
       
-      <v-col cols="12" md="8">
-        <v-card class="glass-card pa-6" elevation="0">
+      <!-- Main Profile Column -->
+      <v-col cols="12" :md="isAdmin ? 10 : 8">
+        <v-card class="glass-card pa-6" elevation="0" :class="{'mt-4 border-primary': isAdmin}">
           
           <div class="d-flex align-center mb-6">
-            <v-avatar color="primary" size="72" class="elevation-4 me-4">
+            <v-avatar color="primary" size="84" class="elevation-4 me-5">
               <v-img v-if="authStore.profile?.photoURL" :src="authStore.profile.photoURL" alt="Avatar" cover></v-img>
-              <span v-else class="text-h5 font-weight-bold text-white">{{ initials }}</span>
+              <span v-else class="text-h4 font-weight-bold text-white">{{ initials }}</span>
             </v-avatar>
             <div>
-              <h2 class="text-h5 font-weight-bold">Profile Settings</h2>
+              <div class="d-flex align-center mb-1">
+                <h2 class="text-h5 font-weight-bold me-3">{{ isAdmin ? 'Administrator Profile' : 'Profile Settings' }}</h2>
+                <v-chip v-if="isAdmin" color="primary" size="small" variant="flat" prepend-icon="mdi-shield-check">Admin</v-chip>
+              </div>
               <div class="text-caption text-medium-emphasis">
-                Manage your account details and subscription tier.
+                {{ isAdmin ? 'Manage your administrator identity and credentials.' : 'Manage your account details and subscription tier.' }}
               </div>
             </div>
           </div>
@@ -22,71 +26,80 @@
 
           <v-form @submit.prevent="confirmSave" v-model="isValid">
             
-            <v-text-field
-              :model-value="authStore.profile?.email"
-              label="Email Address"
-              variant="outlined"
-              prepend-inner-icon="mdi-email-lock"
-              readonly
-              hint="Email cannot be changed via this portal."
-              persistent-hint
-              class="mb-4"
-              bg-color="rgba(0,0,0,0.02)"
-            ></v-text-field>
+            <v-row>
+              <v-col cols="12" :md="isAdmin ? 6 : 12">
+                <v-text-field
+                  :model-value="authStore.profile?.email"
+                  label="Email Address"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-email-lock"
+                  readonly
+                  hint="Email cannot be changed via this portal."
+                  persistent-hint
+                  class="mb-4"
+                  bg-color="rgba(0,0,0,0.02)"
+                ></v-text-field>
+              </v-col>
+              
+              <v-col cols="12" :md="isAdmin ? 6 : 12">
+                <v-text-field
+                  v-model="displayName"
+                  label="Display Name"
+                  placeholder="How should we call you?"
+                  variant="outlined"
+                  prepend-inner-icon="mdi-badge-account-horizontal"
+                  :rules="[v => !!v || 'Name is required']"
+                  class="mb-6"
+                ></v-text-field>
+              </v-col>
+            </v-row>
 
-            <v-text-field
-              v-model="displayName"
-              label="Display Name"
-              placeholder="How should we call you?"
-              variant="outlined"
-              prepend-inner-icon="mdi-badge-account-horizontal"
-              :rules="[v => !!v || 'Name is required']"
-              class="mb-6"
-            ></v-text-field>
+            <template v-if="!isAdmin">
+              <div class="text-subtitle-2 font-weight-bold mb-2 text-primary">Subscription Tier</div>
 
-            <div class="text-subtitle-2 font-weight-bold mb-2 text-primary">Subscription Tier</div>
-
-            <v-radio-group v-model="tier" color="primary" class="mb-6">
-              <v-row>
-                <v-col cols="12" sm="6" d-flex>
-                   <v-card 
-                      variant="outlined" 
-                      class="pa-4 cursor-pointer h-100" 
-                      :class="{'border-primary bg-primary-opacity': tier === 'Basic'}"
-                      @click="tier = 'Basic'"
-                   >
-                      <div class="d-flex align-center">
-                        <v-radio value="Basic" hide-details density="compact" class="me-2"></v-radio>
-                        <div>
-                          <div class="font-weight-bold">Basic Tier</div>
-                          <div class="text-caption">Free • 1GB Storage • 5 Workflows</div>
+              <v-radio-group v-model="tier" color="primary" class="mb-6">
+                <!-- ... radio options ... -->
+                <v-row>
+                  <v-col cols="12" sm="6" d-flex>
+                     <v-card 
+                        variant="outlined" 
+                        class="pa-4 cursor-pointer h-100" 
+                        :class="{'border-primary bg-primary-opacity': tier === 'Basic'}"
+                        @click="tier = 'Basic'"
+                     >
+                        <div class="d-flex align-center">
+                          <v-radio value="Basic" hide-details density="compact" class="me-2"></v-radio>
+                          <div>
+                            <div class="font-weight-bold">Basic Tier</div>
+                            <div class="text-caption">Free • 1GB Storage • 5 Workflows</div>
+                          </div>
                         </div>
-                      </div>
-                   </v-card>
-                </v-col>
+                     </v-card>
+                  </v-col>
 
-                <v-col cols="12" sm="6" d-flex>
-                   <v-card 
-                      variant="outlined" 
-                      class="pa-4 cursor-pointer h-100"
-                      :class="{'border-primary bg-primary-opacity': tier === 'Advanced'}"
-                      @click="tier = 'Advanced'"
-                   >
-                      <div class="d-flex align-center">
-                        <v-radio value="Advanced" hide-details density="compact" class="me-2"></v-radio>
-                        <div>
-                          <div class="font-weight-bold">Advanced Tier</div>
-                          <div class="text-caption">Pro • 10GB Storage • Unlimited</div>
+                  <v-col cols="12" sm="6" d-flex>
+                     <v-card 
+                        variant="outlined" 
+                        class="pa-4 cursor-pointer h-100"
+                        :class="{'border-primary bg-primary-opacity': tier === 'Advanced'}"
+                        @click="tier = 'Advanced'"
+                     >
+                        <div class="d-flex align-center">
+                          <v-radio value="Advanced" hide-details density="compact" class="me-2"></v-radio>
+                          <div>
+                            <div class="font-weight-bold">Advanced Tier</div>
+                            <div class="text-caption">Pro • 10GB Storage • Unlimited</div>
+                          </div>
                         </div>
-                      </div>
-                   </v-card>
-                </v-col>
-              </v-row>
-            </v-radio-group>
+                     </v-card>
+                  </v-col>
+                </v-row>
+              </v-radio-group>
 
-            <v-divider class="mb-6"></v-divider>
+              <v-divider class="mb-6"></v-divider>
+            </template>
 
-            <div class="d-flex justify-end">
+            <div class="d-flex" :class="isAdmin ? 'justify-start' : 'justify-end'">
               <v-btn 
                 type="submit" 
                 color="primary" 
@@ -103,7 +116,8 @@
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="4">
+      <!-- Usage Column (Users Only) -->
+      <v-col cols="12" md="4" v-if="!isAdmin">
         <v-card class="glass-card pa-6 h-100" elevation="0">
           <h3 class="text-h6 font-weight-bold mb-4">Current Usage</h3>
           
@@ -202,6 +216,8 @@
           <span class="font-weight-bold">Profile updated successfully!</span>
       </div>
     </v-snackbar>
+
+    <PaymentModal v-model="showPaymentModal" />
   </v-container>
 </template>
 
@@ -210,6 +226,7 @@ import { ref, watch, computed, onMounted } from 'vue';
 import { useAuthStore, type Tier } from '../../stores/auth';
 import { useDatasetsStore } from '../../stores/datasets';
 import { useWorkflowsStore } from '../../stores/workflows';
+import PaymentModal from '../../components/PaymentModal.vue'; 
 
 const authStore = useAuthStore();
 const datasetsStore = useDatasetsStore();
@@ -220,6 +237,7 @@ const isValid = ref(false);
 const loading = ref(false);
 const showSuccess = ref(false);
 const showConfirmDialog = ref(false);
+const showPaymentModal = ref(false); // New state for payment modal
 
 // Data Refs
 const displayName = ref(authStore.profile?.displayName ?? '');
@@ -236,6 +254,8 @@ onMounted(async () => {
 });
 
 // Computed Helpers
+const isAdmin = computed(() => authStore.profile?.role === 'admin');
+
 const initials = computed(() => {
   const name = displayName.value || authStore.profile?.email || 'U';
   return name.substring(0, 2).toUpperCase();
@@ -260,9 +280,7 @@ watch(
   () => authStore.profile,
   (profile) => {
     if (profile) {
-      // Only update if user hasn't typed anything yet to prevent overwriting
       if (!displayName.value) displayName.value = profile.displayName ?? '';
-      // Keep tier synced unless we specifically want to let them change it
       if (tier.value === profile.tier) tier.value = profile.tier; 
     }
   },
@@ -275,20 +293,35 @@ const confirmSave = () => {
     showConfirmDialog.value = true;
 };
 
-// Execute Save to Firebase
+// Execute Save Logic
 const executeSave = async () => {
   loading.value = true;
   try {
-    await authStore.updateProfileDetails({
-      displayName: displayName.value,
-      tier: tier.value,
-    });
+    const isUpgrading = tier.value === 'Advanced' && authStore.profile?.tier !== 'Advanced';
+
+    // 1. Save Display Name changes first
+    if (displayName.value !== authStore.profile?.displayName) {
+        await authStore.updateProfileDetails({
+            displayName: displayName.value
+        });
+    }
+
+    if (isUpgrading) {
+        // Close confirm dialog and open payment modal
+        showConfirmDialog.value = false;
+        showPaymentModal.value = true;
+        // Don't show success yet, wait for payment
+    } else {
+        // Normal save
+        await authStore.updateProfileDetails({
+            tier: tier.value,
+        });
+        showConfirmDialog.value = false;
+        showSuccess.value = true;
+    }
     
-    showConfirmDialog.value = false;
-    showSuccess.value = true;
   } catch (error) {
     console.error(error);
-    // Error handling usually managed by global toast or store state
   } finally {
     loading.value = false;
   }

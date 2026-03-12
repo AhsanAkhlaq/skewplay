@@ -57,6 +57,12 @@ const router = createRouter({
           name: 'profile',
           component: () => import('../views/profile/ProfileView.vue'),
         },
+        {
+          path: 'admin',
+          name: 'admin-dashboard',
+          component: () => import('../views/admin/AdminDashboard.vue'),
+          meta: { requiresAdmin: true },
+        },
       ],
     },
     // Top-level route for Full Screen Workflow Editor
@@ -64,6 +70,24 @@ const router = createRouter({
       path: '/editor/:id',
       name: 'workflow-editor',
       component: () => import('../views/workflows/WorkflowEditor.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/pricing',
+      name: 'pricing',
+      component: () => import('../views/PricingView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/success',
+      name: 'payment-success',
+      component: () => import('../views/PaymentSuccess.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/cancel',
+      name: 'payment-cancel',
+      component: () => import('../views/PaymentCancel.vue'),
       meta: { requiresAuth: true },
     },
     {
@@ -96,6 +120,12 @@ router.beforeEach(async (to, from, next) => {
     return;
   }
 
+  // Enforce admin requirement
+  if (to.meta.requiresAdmin && authStore.profile?.role !== 'admin') {
+    next({ name: 'dashboard' });
+    return;
+  }
+
   // Handle guest-only routes (Login/Register)
   if (to.meta.guestOnly && isAuthenticated) {
     // Restore last route if valid and recent
@@ -104,7 +134,17 @@ router.beforeEach(async (to, from, next) => {
       next(lastRoute);
       return;
     }
-    next({ name: 'dashboard' });
+    if (authStore.profile?.role === 'admin') {
+      next({ name: 'admin-dashboard' });
+    } else {
+      next({ name: 'dashboard' });
+    }
+    return;
+  }
+
+  // Redirect admins away from user dashboard
+  if (to.name === 'dashboard' && authStore.profile?.role === 'admin') {
+    next({ name: 'admin-dashboard' });
     return;
   }
 

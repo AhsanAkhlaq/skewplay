@@ -3,12 +3,18 @@ import faulthandler
 faulthandler.enable()
 
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 import shutil
 import json
 import uuid
 import joblib
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+
+import firebase_admin
+from firebase_admin import credentials, firestore, auth as firebase_auth
 
 import pandas as pd
 import numpy as np
@@ -71,7 +77,7 @@ app = FastAPI()
 
 # CORS Configuration
 origins = [
-    "http://localhost:5173",  # Vue Frontend
+    "http://localhost:5173",
     "http://localhost:3000",
 ]
 
@@ -82,6 +88,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Firebase Admin Setup
+try:
+    cred = credentials.Certificate("firebase-credentials.json")
+    firebase_admin.initialize_app(cred)
+    firebase_db = firestore.client()
+    print("Firebase Admin initialized successfully.")
+except Exception as e:
+    print(f"Failed to initialize Firebase Admin: {e}")
+    firebase_db = None
 
 # Directories
 SAMPLES_DIR = "storage/samples"
@@ -331,15 +347,19 @@ async def get_dataset_details(
         # fillna to handle NaN in describe output for JSON serialization transformation
         desc = df.describe(include='all').transpose()
         desc.insert(0, 'column', desc.index)
-        # Handle Inf
-        desc.replace([np.inf, -np.inf], np.nan, inplace=True)
+        # Handle Inf (Safely for newer Pandas/Numpy versions)
+        num_cols = desc.select_dtypes(include=[np.number]).columns
+        if len(num_cols) > 0:
+            desc[num_cols] = desc[num_cols].replace([np.inf, -np.inf], np.nan)
         # Convert NaN to None
         stats = desc.where(pd.notnull(desc), None).to_dict(orient='records')
 
         # 5. Preview
         # Create a safe copy for preview to handle Inf/NaN
         df_preview = df.copy()
-        df_preview.replace([np.inf, -np.inf], np.nan, inplace=True)
+        num_cols2 = df_preview.select_dtypes(include=[np.number]).columns
+        if len(num_cols2) > 0:
+            df_preview[num_cols2] = df_preview[num_cols2].replace([np.inf, -np.inf], np.nan)
         
         # Convert NaN to None
         head = df_preview.head(5).where(pd.notnull(df_preview), None).values.tolist()
@@ -580,12 +600,20 @@ async def perform_eda(
              feature_importance['target'] = target_col
         # --- 4. PCA and Target Stats ---
         pca_data = calculate_pca(df, target_col)
+        
+        # Safely create sample to avoid numpy string dtype errors
+        df_sample = df.head(5000).copy()
+        num_cols_sample = df_sample.select_dtypes(include=[np.number]).columns
+        if len(num_cols_sample) > 0:
+            df_sample[num_cols_sample] = df_sample[num_cols_sample].replace([np.inf, -np.inf], np.nan)
+        sample_records = df_sample.fillna("").to_dict(orient='records')
+
         return sanitize_for_json({
             "fileName": fileName,
             "univariate": univariate,
             "correlation": correlation,
             "featureImportance": feature_importance,
-            "sample": df.head(5000).replace([np.inf, -np.inf], np.nan).fillna("").to_dict(orient='records'), # Larger sample for detailed view
+            "sample": sample_records, # Larger sample for detailed view
             "targetStats": {
                 "entropy": float(entropy(df[target_col].value_counts(normalize=True))) if target_col and target_col in df.columns else 0,
                 "imbalanceRatio": (df[target_col].value_counts().max() / df[target_col].value_counts().min()) if target_col and target_col in df.columns and len(df[target_col].value_counts()) > 0 else 1,
@@ -925,6 +953,177 @@ async def run_experiment(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# --- Admin & Payment Routes ---
+import stripe
+from fastapi.responses import JSONResponse
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_51T18FWD4okFVPDIBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+
+ADMIN_EMAILS = [
+    'admin@gmail.com',
+    'abdul@gmail.com',
+]
+
+@app.get("/admin/stats")
+async def get_admin_stats():
+    if not firebase_db:
+        return JSONResponse(status_code=500, content={"detail": "Firebase DB not initialized"})
+    
+    try:
+        # Pre-aggregate all workflow counts per user to make this efficient
+        workflow_counts_per_user = {}
+        workflows_stream = firebase_db.collection('workflows').stream()
+        for wf in workflows_stream:
+            wf_data = wf.to_dict()
+            uid = wf_data.get('userId')
+            if uid:
+                workflow_counts_per_user[uid] = workflow_counts_per_user.get(uid, 0) + 1
+
+        users_count = 0
+        total_storage = 0
+        workflows_count = 0
+        
+        users_ref = firebase_db.collection('users')
+        for user_doc in users_ref.stream():
+            data = user_doc.to_dict()
+            if data.get('email') in ADMIN_EMAILS:
+                continue # Skip admins for customer stats
+            
+            users_count += 1
+            usage = data.get('usageStats', {})
+            total_storage += usage.get('storageUsed', 0)
+            workflows_count += workflow_counts_per_user.get(user_doc.id, 0)
+            
+        # Real Stripe polling for revenue
+        total_revenue = 0
+        try:
+            charges = stripe.Charge.list(limit=100)
+            for c in charges.data:
+                if c.status == 'succeeded':
+                    total_revenue += c.amount
+        except Exception as stripe_e:
+            print(f"Stripe Stats Error: {stripe_e}")
+            pass
+
+        return {
+            "totalUsers": users_count,
+            "totalRevenue": total_revenue,
+            "totalExperiments": workflows_count,
+            "totalStorageBytes": total_storage
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.get("/admin/users")
+async def get_admin_users():
+    if not firebase_db:
+        return JSONResponse(status_code=500, content={"detail": "Firebase DB not initialized"})
+        
+    try:
+        users = []
+        # Pre-aggregate all workflow counts per user to make this efficient
+        workflow_counts_per_user = {}
+        workflows_stream = firebase_db.collection('workflows').stream()
+        for wf in workflows_stream:
+            wf_data = wf.to_dict()
+            uid = wf_data.get('userId')
+            if uid:
+                workflow_counts_per_user[uid] = workflow_counts_per_user.get(uid, 0) + 1
+
+        docs = firebase_db.collection('users').stream()
+        for doc in docs:
+            data = doc.to_dict()
+            
+            # Format Timestamp
+            created_at = None
+            if 'createdAt' in data and data['createdAt']:
+                try:
+                    created_at = data['createdAt'].isoformat()
+                except:
+                    pass
+
+            usage = data.get('usageStats', {})
+            
+            # Use the real count from the workflows collection instead of the potentially out-of-sync usageStats counter
+            experiments_run = workflow_counts_per_user.get(doc.id, 0)
+            email = data.get('email', 'Unknown')
+            role = 'admin' if email in ADMIN_EMAILS else data.get('role', 'user')
+            
+            users.append({
+                "uid": doc.id,
+                "displayName": data.get('displayName', 'Unknown'),
+                "email": email,
+                "createdAt": created_at,
+                "tier": data.get('tier', 'Basic'),
+                "role": role,
+                "experiments": experiments_run,
+                "storageBytes": usage.get('storageUsed', 0)
+            })
+        return users
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.get("/admin/payments")
+async def get_admin_payments():
+    try:
+        charges = stripe.Charge.list(limit=100)
+        payments = []
+        for c in charges.data:
+            # We approximate email from billing details or receipt email. 
+            email = c.billing_details.email or c.receipt_email or "Unknown"
+            name = c.billing_details.name or "Unknown"
+            
+            # If it's a test checkout without details, try to identify
+            if email == "Unknown" and name == "Unknown":
+                name = "Stripe Checkout User"
+            
+            payments.append({
+                "userName": name,
+                "userEmail": email,
+                "amount": c.amount,
+                "date": datetime.fromtimestamp(c.created).isoformat(),
+                "status": c.status
+            })
+        return payments
+    except Exception as e:
+        print(f"Stripe Payments Error: {e}")
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.post("/create-checkout-session")
+async def create_checkout_session(userId: str = Form(...)):
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': 'Pro Subscription',
+                    },
+                    'unit_amount': 2000,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url='http://localhost:5173/success',
+            cancel_url='http://localhost:5173/cancel',
+            client_reference_id=userId
+        )
+        return {"url": session.url}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+@app.post("/create-payment-intent")
+async def create_payment_intent(userId: Optional[str] = Form(None)):
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=2000,
+            currency='usd',
+            metadata={'userId': userId or 'guest'}
+        )
+        return {"clientSecret": intent.client_secret, "formattedPrice": "$20.00"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 if __name__ == "__main__":
     import uvicorn

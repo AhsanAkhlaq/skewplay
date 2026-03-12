@@ -128,7 +128,7 @@ const handleLogin = async () => {
   if (!isValid.value) return;
   try {
     await authStore.login(email.value, password.value);
-    const redirectPath = (route.query.redirect as string) || '/app/dashboard';
+    const redirectPath = (route.query.redirect as string) || (authStore.profile?.role === 'admin' ? '/admin' : '/app/dashboard');
     router.push(redirectPath);
   } catch (e) { /* handled by store */ }
 };
@@ -136,7 +136,7 @@ const handleLogin = async () => {
 const handleGoogleLogin = async () => {
   try {
     await authStore.loginWithGoogle();
-    const redirectPath = (route.query.redirect as string) || '/app/dashboard';
+    const redirectPath = (route.query.redirect as string) || (authStore.profile?.role === 'admin' ? '/admin' : '/app/dashboard');
     router.push(redirectPath);
   } catch (e) { /* handled by store */ }
 };

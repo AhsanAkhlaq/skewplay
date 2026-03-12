@@ -26,7 +26,7 @@
             prepend-inner-icon="mdi-badge-account-horizontal-outline"
             variant="outlined"
             color="primary"
-            :rules="[rules.required, rules.minName]"
+            :rules="[rules.required, rules.minName, rules.noNumbers]"
             class="mb-2 autofill-dark" 
           ></v-text-field>
 
@@ -153,6 +153,7 @@ const rules = {
   email: (v: string) => /.+@.+\..+/.test(v) || 'E-mail must be valid',
   minPass: (v: string) => v.length >= 6 || 'Password must be at least 6 characters',
   minName: (v: string) => v.length >= 2 || 'Name must be at least 2 characters',
+  noNumbers: (v: string) => /^[^0-9]*$/.test(v) || 'Name cannot contain numbers',
 };
 
 const handleRegister = async () => {
